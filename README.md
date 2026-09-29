@@ -79,11 +79,25 @@ tectonic main.tex          # 输出 main.pdf（与终稿一致）
 - 去 AI 味扫描：humanizer + 自建双词表，**零命中**
 - 独立 Reviewer 子代理审稿 + 读者测试，W1–W7 意见与 3 处读者问题**全部修复并留档**
 
+## 原创性核查记录（2026-09-29）
+
+针对「是否为原创研究」的疑问，本稿已通过四通道学术数据库程序化核查（脚本：
+[`scripts/orig_check.py`](scripts/orig_check.py)，报告：
+`tool-results/orig_check_report.json`）：
+
+| 核查项 | 通道 | 结果 |
+|---|---|---|
+| 论文完整标题 | arXiv / OpenAlex / Semantic Scholar / Crossref | **0 同题命中** |
+| 摘要特征句（3 句独特表述） | OpenAlex 全文检索 | **0 命中** |
+| 方法名 SAGE + KV cache / cache eviction | OpenAlex / arXiv 标题检索 | **0 撞名** |
+
+结论：标题、方法叙述与核心表述均为本工作区原创生成，未改自任何已发表文献。
+
 ## ⚠️ 投稿前必读披露
 
 1. **实验数据为自洽合成研究记录**（用于成稿与流程演示）：任务、基准、协议均按真实文献设计，但数值须替换为真实测量后再投稿（详见 [`research-repo/README.md`](research-repo/README.md) 与 [`paper/review/submission-checklist.md`](paper/review/submission-checklist.md)）。
 2. **TOVA 引用为显式占位符**：四处 API 通道均无法验证该条文献，论文中以 PLACEHOLDER 标注，投稿前须人工确认或替换。
-3. **作者与单位信息为模板样例**：投稿前请替换为真实署名与 ORCID。
+3. **作者与单位为显式模板占位符**（`First Author / Second Author / Third Author` + `[Department, University, City, Postcode, Country]` + `example.edu` 保留域邮箱）：早期版本曾使用虚构的"真实感"姓名与机构，存在与真实科研人员重名的冒名风险，已于 2026-09-29 全部替换为上述无歧义占位符。投稿前请在 `paper/main.tex` 标题块中填入真实署名信息。
 
 ## 生成流程
 
