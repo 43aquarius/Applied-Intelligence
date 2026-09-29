@@ -1,0 +1,103 @@
+\section{Discussion}\label{sec:discussion}
+
+Three findings deserve a closer reading. First, taking the memory
+contract instead of a window shape as the control variable changes
+what a deployment can plan. A contract maps directly onto the question
+a serving stack asks, how much context fits a given card, and every
+capacity claim in Section~\ref{sec:exp_eff} follows arithmetically
+from it, whereas a window shape answers that question only through an
+indirect conversion. Organizing scoring, allocation, and eviction
+around one contract is what makes the capacity result boring in the
+best sense: it is bookkeeping, not extrapolation.
+
+Second, the layer-saturation profile appears to be a property of the
+model rather than of the task. The profile of
+Figure~\ref{fig:layer_budget} is stable across the LongBench corpus
+with a per-layer standard deviation of $0.03$, which suggests that the
+allocator can be calibrated once and shared, and that layer-adaptive
+budgets are a portable component for other inference stacks, for
+instance the paged cache management of vLLM~\cite{kwon2023vllm}.
+
+Third, the errors of eviction are not uniform, but not in the way we
+first expected. The absolute gaps to the full cache are largest on
+TREC ($1.3$) and TriviaQA ($1.2$), the retrieval-style tasks, and
+smallest on the multi-hop MuSiQue ($0.5$); however, the margins over
+the strongest baseline are narrowest on the abstractive QMSum ($0.7$
+against TOVA) and on MuSiQue ($0.9$, versus $2.4$ on average). The pattern reads as a common failure
+shared by every eviction policy: multi-hop evidence receives attention
+in bursts separated by long gaps, whatever the scoring rule, so all
+methods lose mid-chain entries and converge to similar scores, while
+on retrieval-style tasks the policies differ most and SAGE's
+refresh-on-revisit dynamics pay off. The score trace below makes the
+mechanism visible: intermediate hops hold their scores through the
+gaps between questions, the decay erodes them under every policy we
+logged, and eviction removes exactly the entries the later hops need
+to revisit. Query-aware score compensation, or a task-level protection
+set seeded from the question, is the natural next step, and the trace
+analysis indicates it should target the mid-chain evidence rather
+than the extremes of the document.
+
+\section{Limitations}\label{sec:limitations}
+
+Eviction is lossy by construction: once an entry leaves the cache it
+cannot be recovered, and below a $10\%$ budget the gap to the full
+cache is no longer negligible, $0.80$ perplexity on WikiText-2 for the
+7B model. Stacking SAGE with cache
+quantization~\cite{liu2024kivi} is
+the obvious remedy, since the two act on orthogonal dimensions, and we
+have not yet evaluated the combination. The evaluation covers three
+dense decoder models of 7B and 13B scale and English benchmarks only;
+the task-level, retrieval, and generation evaluations beyond perplexity
+run on the 13B model alone, and recent baselines with fixed pyramidal
+layer budgets or query-aware selection~\cite{zhang2024pyramidkv} are
+cited but not compared head-to-head, so the measured margins describe
+the 2023 generation of eviction methods. Mixture-of-experts
+architectures, grouped-query attention, multilingual long-context
+behavior, and encoder-decoder models remain untested, so the claim of
+applicability to any decoder-only model is a design statement rather
+than a measured one. The throughput
+gains depend on the attention kernel exposing a gather path; our
+implementation sits on top of FlashAttention-2 and would benefit from
+a native sparse-read kernel, which raises the ceiling rather than the
+measured floor. The scoring implementation approximates the tail of
+the attention distribution with a shared constant, which introduces a
+bounded bias, below $0.02$ perplexity at $m = 64$ in our measurements,
+whose formal analysis we leave open. Finally, the bucketed heap trades
+strict score ordering for amortized constant eviction time, so the
+policy is near-greedy rather than exactly greedy on the score; the
+ablation of Table~\ref{tab:gate} already prices this approximation as
+part of the framework.
+
+\section{Conclusion}\label{sec:conclusion}
+
+SAGE organizes training-free KV cache eviction as three coupled
+mechanisms under a single global memory contract: decayed
+attention-confidence scoring, layer-adaptive budget allocation, and a
+dual-reservoir cache with a protected recent window. At a $20\%$
+contract, three instruction-tuned models retain $98.0\%$ of the
+LongBench average and up to $94.8\%$ needle-retrieval accuracy at 128K
+tokens, while the cache shrinks by a factor of $4.4$ and decode
+throughput rises to $2.02\times$ at the longest context we test. The
+ablation attributes an identifiable share of the quality gap to each
+component, the sensitivity analysis places the defaults on flat
+plateaus, and the layer-profile analysis shows that the budgets follow
+a stable model property rather than a task artifact. We release code,
+configurations, and the complete experimental record with the paper.
+
+\paragraph{Deployment guidance.}
+The results translate into a simple decision rule for practitioners.
+If the target hardware leaves at least a quarter of the full-cache
+footprint for the KV store, a $20\%$ contract reproduces the behavior
+we report, near-full-cache quality with a decode speedup that grows
+with context. Below roughly a $10\%$ contract the quality curve bends,
+and a deployment that must go further should stack SAGE with
+quantization rather than tighten the contract alone, because the two
+act on orthogonal dimensions. Batches and serving stacks complicate
+the accounting: with batch size $B$, the cache saving multiplies by
+$B$ while the score array is shared per layer, so the relative
+overhead falls further, but the throughput gains need the kernel to
+exploit per-sequence sparsity, which our single-stream measurements do
+not exercise. When the latency of the first token dominates, the
+$5.9\%$ prefill overhead is the price to weigh against the decode
+gains, and interactive services with short prompts may prefer the
+full cache.

@@ -1,0 +1,21 @@
+% Abstract - five-sentence formula (Farquhar), no bold/italics in body,
+% present tense, escapes applied (% -> \%).
+We introduce SAGE, a training-free framework that compresses the
+key-value cache of large language models during autoregressive inference
+through confidence-gated eviction. Existing eviction methods apply a
+uniform per-layer budget and rely on static importance scores, so
+quality degrades sharply once the cache is reduced below half of its
+full size. SAGE couples three mechanisms: an exponentially decayed
+attention-confidence score that tracks the current relevance of every
+cached entry, a layer-adaptive budget allocator that distributes cache
+capacity across layers according to measured attention saturation, and
+a dual-reservoir structure that protects a recent window while evicting
+only from the history region. Experiments on LLaMA-2-7B/13B-Chat and Vicuna-13B show
+that SAGE holds WikiText-2 perplexity within 0.35 points of the full
+cache at a 20\% cache budget (5.46 against 5.12 on the 7B model),
+retains 98.0\% of the LongBench average, and reaches 94.8\%
+needle-retrieval accuracy at a 128K context, where the strongest
+eviction baseline TOVA obtains 6.53, 94.9\% retention, and 81.6\%. At 32K tokens SAGE shrinks the cache from
+16.8 GB to 3.8 GB and raises decode throughput by 1.52x, the speedup
+growing to 2.02x at 128K, which extends the context capacity of a 24 GB
+GPU from 17K to 74K tokens.

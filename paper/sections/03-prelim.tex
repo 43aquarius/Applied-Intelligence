@@ -1,0 +1,73 @@
+\section{Preliminaries and problem formulation}\label{sec:prelim}
+
+\subsection{Autoregressive decoding and the KV cache}
+
+Consider a decoder-only model with $L$ transformer layers, $H$ attention
+heads per layer, and head dimension $d_h$. At decoding step $t$, the
+query of the current token attends over the keys of all previous
+positions and reads the corresponding values,
+$\mathrm{softmax}(q_t K_{1:t}^{\top}/\sqrt{d_h}) V_{1:t}$. To avoid
+recomputing the key and value projections of past tokens, each layer
+caches one pair $(k_i, v_i)$ per position
+$i$~\cite{shazeer2019fast,vaswani2017attention}. In half precision an
+entry costs $2 \cdot d_h \cdot H \cdot 2 = 4d$ bytes per layer, where
+$d = H d_h$ is the model width, so the 32-layer stack of a 7B model with $d = 4096$ spends
+about $0.52$ GB per 1K tokens. The footprint grows
+linearly with $t$, and after prefill the attention read itself also
+grows with $t$, which makes the cache the first resource to exhaust in
+long-context deployments~\cite{pope2023efficiently}.
+
+\subsection{Budget-constrained eviction}
+
+Let $\rho \in (0,1]$ be a global retention ratio, the memory contract.
+An eviction policy maintains, per layer $l$, a retained set
+$\mathcal{C}_l^{t} \subseteq \{1,\dots,t\}$ that satisfies
+\begin{equation}\label{eq:contract}
+  \sum_{l=1}^{L} \bigl|\mathcal{C}_l^{t}\bigr|
+  \;\le\; \rho\, L\, t,
+\end{equation}
+and an evicted entry cannot be recovered. The policy goal is to
+minimize the quality gap to the full cache. We make the goal concrete
+with two measurable quantities: the perplexity increase
+$\Delta_{\mathrm{ppl}}$ on held-out corpora, and the retention ratio of
+downstream and retrieval scores relative to the full-cache model.
+SAGE keeps constraint~\eqref{eq:contract} but relaxes the uniform split
+into per-layer budgets $b_l(t)$ subject only to the sum, which is the
+freedom that Section~\ref{sec:method_laba} exploits. Two families of
+baselines fit this formulation with different strictness. Uniform-budget
+methods such as H2O and ScissorHands set
+$|\mathcal{C}_l^{t}| = \rho\, t$ for every
+layer~\cite{zhang2023h2o,liu2023scissorhands}. Budget-free methods
+such as TOVA let the cache size follow the attention
+distribution~\cite{PLACEHOLDER_oren2024tova_verify}; in our comparison
+we cap them at the contract for comparability, and we state this
+departure from their native protocol explicitly wherever they
+appear.
+
+\subsection{Three failure modes of uniform-budget eviction}
+
+Our preliminary experiments attribute the quality loss of
+uniform-budget methods to three mechanisms, which we state here in
+operational terms.
+
+First, layers differ in how concentrated their attention is. Deep
+layers route most of their attention mass to few positions, while
+shallow layers spread mass widely, so a fixed fraction of entries
+approximates deep-layer attention well but starves shallow layers.
+
+Second, importance scores go stale. An accumulated-attention score
+never decreases, so an entry that dominated attention early in a
+document keeps its slot after the topic has moved, while currently
+relevant entries with short histories lose ties.
+
+Third, local structure matters. Recency carries positional and
+inductive-head information, rotary embeddings encode absolute
+position into the key geometry~\cite{su2021roformer}, and induction
+heads copy tokens across long ranges~\cite{su2024zoology}; evicting
+the most recent tokens to satisfy a budget breaks local attention
+patterns, and the damage surfaces as retrieval collapse on long
+contexts.
+
+The three components of SAGE target the three mechanisms respectively:
+layer-adaptive budgets address concentration, decayed scoring addresses
+staleness, and the dual reservoir protects local structure.

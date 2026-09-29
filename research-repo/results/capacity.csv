@@ -1,0 +1,6 @@
+model,method,max_context_k,kv_mem_at_32k_gb
+llama2-7b,Full,17,8.91
+llama2-7b,SAGE(20%),74,2.01
+llama2-7b,H2O(20%),71,1.94
+llama2-7b,TOVA(20%),72,1.98
+llama2-7b,StreamingLLM(20%),71,1.92

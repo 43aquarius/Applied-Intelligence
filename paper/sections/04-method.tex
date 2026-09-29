@@ -1,0 +1,194 @@
+\section{The SAGE method}\label{sec:method}
+
+\subsection{Overview}
+
+SAGE runs inside the decoding loop and requires no training, no
+calibration corpus, and no change to the model weights. At every step
+it updates one confidence score per cached entry; every $K$ steps it
+re-allocates the per-layer budgets; and whenever a layer exceeds its
+budget it evicts the lowest-score entries from the history region of
+that layer. Figure~\ref{fig:arch} shows the three stages and the data
+flow. Two principles govern the design. All signals reuse quantities
+that attention already computes, so no pass over the full cache is
+added, and the complete metadata, the score array plus the bucket
+structure, stays at 2.1\% of the bytes it controls, with the protected
+window accounting for a further 11\% of the controlled bytes; the
+realized footprint, 22.6\% of the full cache against the nominal 20\%,
+is accounted for in Section~\ref{sec:method_complexity}.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig1_architecture.png}
+  \caption{Architecture of SAGE. The input stream (left) feeds the
+  per-layer gated cache (middle), where confidence scoring (ACS),
+  layer-adaptive budgets (LABA), and dual-reservoir eviction (DRE)
+  operate online under one global memory contract $B$; the decoding
+  stage (right) consumes the compressed cache. Coral modules mark the
+  SAGE-specific components; kept and evicted cache entries are shown
+  in green and orange, respectively.}
+  \label{fig:arch}
+\end{figure}
+
+\subsection{Attention-confidence scoring}\label{sec:method_acs}
+
+For layer $l$ and cached entry $i$, let $a^{l}_t(i)$ denote the
+attention mass that entry $i$ receives at step $t$, averaged over the
+$H$ heads of the layer. SAGE maintains a decayed accumulation,
+\begin{equation}\label{eq:acs}
+  s^{l}_i(t) \;=\; \lambda\, s^{l}_i(t-1) \;+\; a^{l}_t(i),
+  \qquad \lambda \in (0,1).
+\end{equation}
+The attention contribution received $k$ steps ago decays to
+$\lambda^{k}$ of its original value, so when the discussion moves on,
+the score of an early heavy hitter decays at rate $\lambda^{k}$ and
+yields its slot to currently relevant entries. Setting $\lambda = 1$
+recovers the static accumulation used by heavy-hitter
+scoring~\cite{zhang2023h2o}; Section~\ref{sec:exp_sensitivity} shows
+that the choice of $\lambda$ separates a flat region of near-optimal
+quality from a sharp cliff at $\lambda = 1$.
+
+The update costs one multiply-add per entry per step. The score array
+stores one single-precision value per entry per layer, $4$ bytes
+against $4d$ bytes of cache, which is $1/d$ of the controlled bytes,
+about $0.02\%$ for a 7B model. Entries inside the protected recent
+window and the attention sinks are exempt from eviction regardless of
+score.
+
+\subsection{Layer-adaptive budget allocation}\label{sec:method_laba}
+
+SAGE measures how saturated a layer is with the normalized entropy of
+its averaged attention distribution. Let $\bar{p}^{l}_t$ be the
+attention distribution of layer $l$ averaged over heads and recent
+queries; the saturation signal is
+\begin{equation}\label{eq:kappa}
+  \kappa_l \;=\;
+  \frac{-\sum_{i} \bar{p}^{l}_t(i)\,\log \bar{p}^{l}_t(i)}
+       {\log t}
+  \;\in\; (0,1],
+\end{equation}
+estimated every $K = 512$ steps over the recent window only, again
+reusing attention statistics without extra cache reads. Small
+$\kappa_l$ means peaked attention, in which case few entries
+approximate the layer's attention well; $\kappa_l$ close to $1$ means
+diffuse attention, which needs a wide support. The per-layer budget is
+\begin{equation}\label{eq:budget}
+  b_l(t) \;=\; \operatorname{clip}\!\Bigl(
+  \rho\, t\,
+  \Bigl(\tfrac{\kappa_l}{\bar{\kappa}}\Bigr)^{\!\tau},
+  \; b_{\min}\, t,\; t \Bigr),
+\end{equation}
+where $\bar{\kappa}$ is the mean of $\kappa_l$ over layers, $\tau = 1.5$
+controls the contrast between layers, and $b_{\min} = 0.05$ keeps a
+floor for numerical stability. Because the allocator shifts a fixed
+global mass ($\rho L t$ in total) across layers, the memory
+contract~\eqref{eq:contract} holds up to the clipping floor: when the
+floor binds for some layers, the excess mass is drained back
+proportionally from the layers with the largest budgets, which bounds
+the overshoot by the floor mass, 1.3 points of retention at the
+defaults, and the realized mean retention is 0.213 against the nominal
+0.20. A uniform split corresponds to $\tau = 0$. Figure~\ref{fig:layer_budget} shows the
+profile that \eqref{eq:budget} produces for LLaMA-2-7B under a $20\%$
+contract: retention falls from $0.55$ in the first quarter of layers to
+$0.06$ in the last, a funnel shape consistent with the information
+funneling reported by PyramidKV~\cite{zhang2024pyramidkv} and, in our
+data, responsible on its own for a large share of the gap to the full
+cache.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{fig3_layer_budget.pdf}
+  \caption{Layer-wise retention ratios allocated by LABA for
+  LLaMA-2-7B under a global $0.20$ contract. The dashed line marks the
+  uniform split that fixed-budget methods impose. The mean retention is
+  $0.213$, close to the nominal contract, with the excess coming from
+  the clipping floor.}
+  \label{fig:layer_budget}
+\end{figure}
+
+\subsection{Dual-reservoir eviction}\label{sec:method_dre}
+
+Each layer partitions its cache into three regions. The recent window
+$\mathcal{R}$ holds the $r$ most recent tokens and is protected from
+eviction, leaving the window only by aging out at its far end. The sink
+set $\mathcal{S}$ holds the first few attention-sink
+tokens~\cite{xiao2023efficient} and stays resident permanently. The
+history region $\mathcal{H}_l$ holds confidence-selected entries up to
+the remaining capacity $b_l(t) - r - |\mathcal{S}|$. Eviction removes
+the minimum-score entries of $\mathcal{H}_l$ only,
+\begin{equation}\label{eq:evict}
+  \mathcal{H}_l \;\leftarrow\;
+  \mathcal{H}_l \;\smallsetminus\;
+  \operatorname*{arg\,min}_{I \subseteq \mathcal{H}_l,\,
+  |\mathcal{H}_l| - |I| = b_l(t) - r - |\mathcal{S}|}
+  \;\sum_{i \in I} s^{l}_i,
+\end{equation}
+which we implement with a bucketed minimum heap: scores are bucketed by
+dyadic ranges, buckets are unordered, and eviction pops the lightest
+bucket, which gives amortized $\mathcal{O}(1)$ per eviction instead of
+$\mathcal{O}(\log n)$ for a strict heap. The design guarantees that the
+most recent tokens are never evicted by score, which addresses the
+third failure mode, and it retains the sink protection that streaming
+methods rely on.
+
+\subsection{Algorithm and complexity}\label{sec:method_complexity}
+
+Algorithm~\ref{alg:sage} summarizes one decoding step. The cost
+structure is as follows. Scoring is $\mathcal{O}(1)$ per entry per
+step, a multiply-add on a score array that is $1/d$ of the cache bytes.
+Eviction is amortized $\mathcal{O}(1)$ per entry through the bucketed
+heap. Budget re-allocation is $\mathcal{O}(L)$ every $K$ steps, one
+entropy estimate per layer. All three costs are negligible against the
+$\mathcal{O}(t d)$ attention computation of the step itself. The
+metadata and the clipping floor are not free, and we report them
+honestly: at a nominal $20\%$ contract on LLaMA-2-7B, the realized
+footprint is $3.79$ GB at 32K tokens against the ideal $3.35$ GB, an
+excess of $2.6$ percentage points from the clipping floor, the bucket
+structure, and the score arrays.
+
+\begin{algorithm}[t]
+\SetAlgoLined
+\KwIn{Layers $L$, contract $\rho$, window $r$, sinks $|\mathcal{S}|$,
+     decay $\lambda$, interval $K$, heap buckets}
+\KwOut{Next token $x_{t+1}$; caches $\{\mathcal{C}_l\}_{l=1}^{L}$}
+\For{each decoding step $t$}{
+  compute attention; read $a^{l}_t(i)$ per layer\;
+  \For{$l \leftarrow 1$ \KwTo $L$}{
+    $s^{l}_i \leftarrow \lambda\, s^{l}_i + a^{l}_t(i)$
+    \quad for all retained $i$\;
+    \If{$t \bmod K = 0$}{
+      estimate $\kappa_l$ on recent window\;
+      set $b_l(t)$ by Eq.~\eqref{eq:budget}\;
+    }
+    \If{$|\mathcal{C}_l| > b_l(t)$}{
+      evict $\operatorname{arg\,min}$-score entries from
+      $\mathcal{H}_l$ until $|\mathcal{C}_l| = b_l(t)$\;
+    }
+  }
+  append $(k_t, v_t)$; emit $x_{t+1}$\;
+}
+\caption{One decoding step of SAGE.}
+\label{alg:sage}
+\end{algorithm}
+
+\subsection{Implementation}\label{sec:method_impl}
+
+We implement SAGE as a PyTorch module that wraps the cache
+gather/scatter path of the HF Transformers decoder and keeps the
+FlashAttention-2 kernel untouched~\cite{dao2023flashattention2}.
+Scoring consumes the attention statistics the kernel already exposes;
+for efficiency the implementation accumulates exact scores for the
+top-$m$ entries of each step and folds the tail mass into a constant
+shared by the remaining entries, which bounds the scoring overhead
+independently of $t$. All three components have precedents in the
+literature, sinks and protected windows in streaming
+attention~\cite{xiao2023efficient}, the importance-plus-recency mix in
+H2O~\cite{zhang2023h2o}, and fixed pyramidal layer budgets in
+PyramidKV~\cite{zhang2024pyramidkv}; what is new here is their coupling
+under an explicit contract and the online entropy-driven
+re-allocation, as Section~\ref{sec:related} details. Eviction and
+re-allocation run asynchronously with the projection of the next layer,
+so they hide inside existing kernel latency except for the bucket
+rebuild every $K$ steps. The method is orthogonal to cache
+quantization~\cite{liu2024kivi}: eviction shrinks the entry count,
+quantization shrinks the bytes per entry, and the two can be applied
+together, which we leave to future work.

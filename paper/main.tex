@@ -1,0 +1,142 @@
+% =====================================================================
+% SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
+% Long-Context Inference of Large Language Models
+%
+% Manuscript prepared for Applied Intelligence (Springer).
+% Standard article class reproducing the Springer journal layout:
+% single column, Times-like type, numeric citations, Declarations block.
+%
+% Compile: tectonic main.tex   (via pdf.py convert.latex, 2 runs)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ----- encoding & fonts (XeTeX/Tectonic) -----------------------------
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Liberation Serif}          % Times-metric-compatible
+\setsansfont{Liberation Sans}
+\setmathfont{texgyretermes-math.otf}    % Times-compatible math
+
+% ----- layout ---------------------------------------------------------
+\usepackage[a4paper, top=2.6cm, bottom=2.6cm, left=2.6cm, right=2.6cm]{geometry}
+\usepackage{microtype}
+\usepackage{setspace}
+\setstretch{1.13}
+
+% ----- math & tables ---------------------------------------------------
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+
+% ----- graphics --------------------------------------------------------
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+
+% ----- algorithm -------------------------------------------------------
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\SetAlFnt{\small}
+\SetAlCapFnt{\small}
+\SetAlCapNameFnt{\small}
+
+% ----- misc -------------------------------------------------------------
+\usepackage{enumitem}
+\usepackage{needspace}
+\usepackage{xcolor}
+\usepackage{caption}
+\captionsetup{font=small, labelfont=bf, skip=6pt}
+
+% ----- bibliography (numeric, Springer-basic style) ----------------------
+\usepackage[numbers,sort&compress]{natbib}
+\bibliographystyle{unsrtnat}
+\setlength{\bibsep}{2.2pt}
+
+% ----- orphan/widow control ----------------------------------------------
+\widowpenalty=10000
+\clubpenalty=10000
+\setlength{\parskip}{0pt}
+\emergencystretch=1.5em
+
+% ----- headers -------------------------------------------------------------
+\usepackage{fancyhdr}
+\setlength{\headheight}{14pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape Applied Intelligence manuscript}
+\fancyhead[R]{\small\itshape Sparsity-Adaptive Gated Eviction}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+% ----- hyperref (last) ------------------------------------------------------
+\usepackage[
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!45!black,
+  urlcolor=blue!55!black,
+  bookmarks=true,
+  bookmarksnumbered=true,
+  unicode=true
+]{hyperref}
+
+\hypersetup{
+  pdftitle={SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
+            Long-Context Inference of Large Language Models},
+  pdfauthor={Yifan Zhang, Jingwen Liu, Bo Chen},
+  pdfsubject={Efficient inference of large language models; KV cache compression},
+  pdfkeywords={Large language models, KV cache compression, Long-context
+               inference, Attention sparsity, Memory efficiency}
+}
+
+% ----- notation macros -------------------------------------------------------
+\newcommand{\method}{SAGE}
+\newcommand{\ie}{i.e.,}
+\newcommand{\eg}{e.g.,}
+
+\begin{document}
+
+% ======================= title block =======================
+\thispagestyle{plain}
+
+\begin{center}
+  {\LARGE\bfseries Sparsity-Adaptive Gated Eviction for Memory-Efficient
+   Long-Context Inference of Large Language Models\par}
+  \vspace{1.1em}
+  {\large Yifan Zhang\textsuperscript{1} \quad Jingwen Liu\textsuperscript{1}
+   \quad Bo Chen\textsuperscript{2}\par}
+  \vspace{0.5em}
+  {\small
+  \textsuperscript{1}~School of Computer Science and Technology,
+   Zhejiang University, Hangzhou 310027, Zhejiang, China\par
+  \textsuperscript{2}~School of Computer Science, Fudan University,
+   Shanghai 200433, China\par
+  \texttt{\{yifanzhang, jingwenliu\}@zju.edu.cn} \quad
+  \texttt{bochen@fudan.edu.cn}\par}
+\end{center}
+\vspace{0.8em}
+
+\noindent\begin{minipage}{\textwidth}
+\small
+\textbf{Abstract}\quad
+\input{sections/00-abstract}
+\vspace{0.5em}
+
+\noindent\textbf{Keywords}\quad Large language models · KV cache
+compression · Long-context inference · Attention sparsity
+· Memory efficiency
+\end{minipage}
+\vspace{1.2em}
+
+% ======================= body =======================
+\input{sections/01-intro}
+\input{sections/02-related}
+\input{sections/03-prelim}
+\input{sections/04-method}
+\input{sections/05-experiments}
+\input{sections/06-discussion}
+\input{sections/07-backmatter}
+
+% ======================= references =======================
+\bibliography{references}
+
+\end{document}

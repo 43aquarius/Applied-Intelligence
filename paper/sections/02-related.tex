@@ -1,0 +1,95 @@
+\section{Related work}\label{sec:related}
+
+\subsection{KV cache compression by eviction}
+
+One line of research identifies droppable entries through attention
+statistics. H2O shows that accumulated attention concentrates on a
+small set of heavy hitters and keeps a recent window alongside the
+heavy hitters~\cite{zhang2023h2o}. ScissorHands formulates a
+persistence-of-importance hypothesis and selects tokens whose
+importance persists across the text
+stream~\cite{liu2023scissorhands}. TOVA evicts greedily per attention
+head, keeping the entries that the current query assigns the largest
+mass, with a cache size that adapts to the attention distribution
+rather than a preset budget~\cite{PLACEHOLDER_oren2024tova_verify}.
+FastGen profiles attention patterns per head and applies
+pattern-specific compression strategies~\cite{ge2023model}. PyramidKV
+observes that pyramid-shaped per-layer budgets follow the information
+funnel of deep networks~\cite{zhang2024pyramidkv}. These methods share
+one design choice that SAGE revisits: the per-layer budget is uniform
+in most implementations, and the importance score is static or slowly
+varying. SAGE differs on both points. The budget varies across layers
+according to a measured saturation signal and is re-allocated online,
+and the confidence score decays explicitly, which we show in
+Section~\ref{sec:exp_ablation} is what separates near-lossless
+compression from sharp degradation at aggressive budgets.
+
+A parallel line compresses bytes per entry rather than the number of
+entries. LLM.int8() quantizes activations at
+scale~\cite{dettmers2022llmint8}, KIVI stores keys and values in 2-bit
+asymmetric quantization~\cite{liu2024kivi}, and KVQuant pushes
+million-token contexts with non-uniform, outlier-aware
+quantization~\cite{hooper2024kvquant}. Eviction and quantization act
+on orthogonal dimensions, the entry count against the bytes per entry,
+so the two can be stacked. This paper concentrates on the eviction
+dimension and reports the combination with quantized caches as future
+work.
+
+\subsection{Sparse and efficient attention}
+
+Training-side sparse attention restricts the key set that each query
+can see. Longformer and Big Bird impose fixed sparse
+patterns~\cite{beltagy2020longformer,zaheer2020big}, the Sparse
+Transformer introduces factorized block patterns~\cite{child2019generating},
+Adaptively Sparse Transformers learn per-head attention
+spans~\cite{correia2019adaptively}, ALiBi extrapolates positions to
+lengths unseen in training~\cite{press2021alibi}, and Transformer-XL
+recycles segment-level states~\cite{dai2019transformer}. These methods
+require training or fine-tuning, which makes them complementary to
+inference-time compression rather than substitutes. Weight pruning is
+a third, again orthogonal, family that removes parameters rather than
+cache entries~\cite{frantar2023sparsegpt}. On the inference
+side, StreamingLLM discovers attention sinks and keeps a local window,
+which enables streaming generation~\cite{xiao2023efficient}. FlashAttention
+reduces the IO cost of exact attention without changing its
+semantics~\cite{dao2022flashattention,dao2023flashattention2}, and
+systems such as vLLM manage cache pages to raise serving
+throughput~\cite{kwon2023vllm}. SAGE belongs to the inference-side
+family, but it takes the memory contract, not the window shape, as the
+control variable, and it drives eviction with a global decayed
+confidence signal rather than query-local scores.
+
+\subsection{Long-context evaluation}
+
+Evaluation of long-context ability spans three levels. Perplexity on
+WikiText-2~\cite{merity2016pointer} and PG19~\cite{rae2019compressive}
+measures language quality under compression. LongBench aggregates
+multilingual long-context tasks that exercise summarization, question
+answering, and few-shot classification over documents of tens of
+thousands of tokens~\cite{bai2023longbench}; we use its eleven-task
+English configuration. Retrieval probes such as Lost in the
+Middle and needle-in-a-haystack tests bury a fact inside long noise
+and measure whether the model can return
+it~\cite{liu2023lost}. Retrieval is the most sensitive probe for
+eviction methods, because any policy that drops the entry carrying the
+needle fails immediately and visibly. Analyses of associative recall
+in efficient architectures reach the same conclusion from the modeling
+side: recalling a value bound to an earlier key is the core capability
+that attention sparseness must preserve~\cite{su2024zoology}. Our
+evaluation follows all three levels, and the needle study at 128K
+serves as the stress test under which uniform-budget methods collapse.
+
+\paragraph{Positioning.}
+Each ingredient of SAGE has a precedent: sink protection and recent
+windows come from streaming attention~\cite{xiao2023efficient}, the
+mixture of accumulated importance with recency is the official design
+of H2O~\cite{zhang2023h2o}, fixed pyramidal layer budgets are the
+contribution of PyramidKV~\cite{zhang2024pyramidkv}, and temporal
+discounting of importance is a natural reading of the persistence
+hypothesis of ScissorHands~\cite{liu2023scissorhands}. The contribution
+of this paper is not any single mechanism but the coupling of the
+three under one explicit memory contract, together with the online
+entropy-driven re-allocation of the layer budgets, which no prior
+component provides, and the paper prices each ingredient separately in
+the ablation study so that the coupling, not the ingredients, carries
+the claimed gains.

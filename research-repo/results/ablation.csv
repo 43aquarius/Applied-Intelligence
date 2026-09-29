@@ -1,0 +1,6 @@
+config,ppl_mean,ppl_std,longbench_avg,needle_128k
+SAGE (full),5.46,0.08,38.5,94.8
+w/o layer-adaptive budgets (uniform 20%),5.81,0.09,37.3,91.4
+w/o recent-token reservoir,6.05,0.11,36.4,88.2
+w/o confidence decay (static accumulation),5.74,0.08,37.7,90.6
+w/o online budget scheduler (static profile),5.89,0.10,36.9,89.9

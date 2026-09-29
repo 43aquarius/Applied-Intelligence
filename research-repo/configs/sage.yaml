@@ -1,0 +1,15 @@
+# SAGE default configuration
+model: llama2-7b-chat
+budget_global: 0.20          # global KV contract (fraction of full cache)
+reservoir_recent: 32         # protected recent tokens (r)
+decay_lambda: 0.99           # ACS decay
+scheduler_interval: 512      # LABA re-allocation every K steps
+scheduler_warmup: 1024       # steps before first re-allocation
+evict_check: 64              # eviction check cadence (tokens)
+sink_tokens: 4               # always-kept attention sinks
+seed: [42, 123, 2024]
+benchmarks:
+  ppl: [wikitext2, pg19]
+  tasks: longbench
+  retrieval: needle
+hardware: A100-40GB
