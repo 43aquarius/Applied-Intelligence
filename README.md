@@ -8,10 +8,17 @@
 
 | 内容 | 位置 |
 |---|---|
-| 论文终稿（23 页 PDF） | [`SAGE_AppliedIntelligence_Manuscript.pdf`](SAGE_AppliedIntelligence_Manuscript.pdf) |
+| **投稿包（2026-09-30 终稿工程）** | [`Submission_Package/`](Submission_Package/) |
+| 论文终稿（25 页 PDF） | [`Submission_Package/SAGE_AppliedIntelligence_Manuscript.pdf`](Submission_Package/SAGE_AppliedIntelligence_Manuscript.pdf) |
+| 投稿前诊断报告 | [`Submission_Package/SUBMISSION_REPORT.md`](Submission_Package/SUBMISSION_REPORT.md) |
 | 完整产物包（82 文件 ZIP） | [`SAGE_paper_package.zip`](SAGE_paper_package.zip) |
 | LaTeX 源码（可编译） | [`paper/main.tex`](paper/main.tex) |
 | 投稿前检查清单 | [`paper/review/submission-checklist.md`](paper/review/submission-checklist.md) |
+
+> ⚠️ 投稿包为**修订版**（TOVA 引文已解析为 EMNLP 2024 真实文献、损坏的 OPT
+> 条目已重建、新增 SnapKV/Quest/DuoAttention 已验证文献、数字 72 项审计
+> 全过）；`paper/` 目录为历史版本留档。若期刊要求双盲评审且本仓库公开，
+> 请勿在投稿期间公开引用本仓库链接（匿名稿匿名性会被破坏）。
 
 ## 论文速览
 
