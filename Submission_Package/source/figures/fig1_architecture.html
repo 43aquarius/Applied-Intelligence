@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root{
+    --ink:#1F2937;         /* primary text */
+    --muted:#6B7280;       /* secondary text */
+    --line:#94A3B8;        /* arrows */
+    --stage1:#EFF4F8;      /* pale blue ground: input */
+    --stage2:#F0F6F3;      /* pale green ground: gated cache */
+    --stage3:#F5F1EA;      /* pale sand ground: output */
+    --mod:#FFFFFF;         /* module fill */
+    --modline:#C7D0DA;     /* module border */
+    --accent:#D97757;      /* coral - SAGE mechanisms only */
+    --accentbg:#FBEFE9;    /* pale coral ground for SAGE components */
+    --keep:#4C7A5A;        /* retained token */
+    --drop:#B4552F;        /* evicted token */
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:#FFFFFF;}
+  .poster{
+    width:1480px; height:760px; position:relative;
+    background:#FFFFFF; font-family:"Helvetica Neue", Arial, "Segoe UI", sans-serif;
+    color:var(--ink); padding:18px 26px;
+  }
+  .stage{
+    position:absolute; border-radius:14px; border:1px solid #E3E7EB; top:64px; height:600px;
+  }
+  .stage-label{
+    position:absolute; top:10px; left:0; right:0; text-align:center;
+    font-size:13px; letter-spacing:2.5px; color:var(--muted);
+    font-weight:600; text-transform:uppercase;
+  }
+  .s1{left:26px;  width:330px; background:var(--stage1);}
+  .s2{left:378px; width:700px; background:var(--stage2);}
+  .s3{left:1098px; width:356px; background:var(--stage3);}
+
+  .mod{
+    position:absolute; background:var(--mod); border:1.5px solid var(--modline);
+    border-radius:10px; padding:10px 12px; box-shadow:0 1px 3px rgba(15,23,42,.05);
+  }
+  .mod h4{font-size:14.5px; font-weight:700; margin-bottom:4px; color:var(--ink);}
+  .mod p{font-size:12px; color:var(--muted); line-height:1.45;}
+  .sagemod{background:var(--accentbg); border:1.5px solid #E4B9A6;}
+  .sagemod h4{color:#9A4E30;}
+  .sagemod p{color:#7A5A4E;}
+
+  .tokenstrip{display:flex; gap:5px; margin-top:7px; align-items:center;}
+  .tok{width:22px; height:22px; border-radius:5px; border:1px solid #C9D4DE;}
+  .tok.k{background:#DCEDE3; border-color:#9DBFA9;}
+  .tok.d{background:#F6DED4; border-color:#D3A38C; opacity:.85;}
+  .tkey{font-size:11px; color:var(--muted); margin-left:6px;}
+
+  .eq{
+    font-family:"Times New Roman", Georgia, serif; font-style:italic;
+    font-size:13.5px; color:#334155; margin-top:6px; background:#F8FAFC;
+    border:1px solid #E2E8F0; border-radius:6px; padding:5px 8px; display:inline-block;
+  }
+
+  /* arrow layer */
+  svg.arrows{position:absolute; left:0; top:0; width:1480px; height:760px; pointer-events:none;}
+  .legend{
+    position:absolute; bottom:16px; left:378px; width:700px; display:flex;
+    gap:26px; align-items:center; justify-content:center;
+  }
+  .legend .li{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--muted);}
+  .swatch{width:14px; height:14px; border-radius:4px; border:1px solid #C9D4DE;}
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <div class="stage s1">
+    <div class="stage-label">Input stream</div>
+    <div class="mod" style="left:24px; top:44px; width:282px;">
+      <h4>Prompt x&#8321; ... x&#8345;</h4>
+      <p>Decoder-only LLM, layer &#8467;, head h. Query attends over all cached keys.</p>
+    </div>
+    <div class="mod" style="left:24px; top:158px; width:282px;">
+      <h4>Attention output a&#8345;</h4>
+      <p>Per-head attention weights over cached tokens, computed each decoding step.</p>
+    </div>
+    <div class="mod sage-eq" style="left:24px; top:272px; width:282px;">
+      <h4 style="color:#334155;">KV cache entry (k, v)</h4>
+      <div class="tokenstrip">
+        <div class="tok"></div><div class="tok"></div><div class="tok"></div>
+        <div class="tok"></div><div class="tok"></div><div class="tok"></div>
+        <span class="tkey">memory grows O(t)</span>
+      </div>
+      <p style="margin-top:7px;">Footprint scales linearly with generated context; the contract B caps it.</p>
+    </div>
+    <div class="mod" style="left:24px; top:420px; width:282px;">
+      <h4>Global memory contract B</h4>
+      <p>Target fraction of full cache (e.g. 20%), shared across all layers.</p>
+    </div>
+  </div>
+
+  <div class="stage s2">
+    <div class="stage-label">SAGE gated cache &nbsp;&#183;&nbsp; per layer &#8467;</div>
+
+    <div class="mod sagemod" style="left:22px; top:44px; width:320px;">
+      <h4>1. Confidence scoring (ACS)</h4>
+      <p>Accumulated received attention with exponential decay.</p>
+      <div class="eq">s&#7522; &#8592; &#955; s&#7522; + a&#8345;(i)</div>
+    </div>
+
+    <div class="mod sagemod" style="left:364px; top:44px; width:312px;">
+      <h4>2. Layer-adaptive budgets (LABA)</h4>
+      <p>Attention-saturation profile sets per-layer budget b&#8467;; re-allocated every 512 steps.</p>
+      <div class="eq">&#931;&#8467; b&#8467; = B &#183; n</div>
+    </div>
+
+    <div class="mod" style="left:22px; top:212px; width:654px; height:120px; background:#FFFFFF;">
+      <h4>3. Dual-reservoir cache (DRE)</h4>
+      <p style="margin-bottom:2px;">Protected window r = 32 recent tokens &nbsp;+&nbsp; confidence-selected historical tokens.</p>
+      <div class="tokenstrip" style="margin-top:10px;">
+        <div class="tok k"></div><div class="tok k"></div><div class="tok k"></div><div class="tok k"></div>
+        <div class="tok d"></div><div class="tok k"></div><div class="tok d"></div>
+        <div class="tok k"></div><div class="tok k"></div><div class="tok d"></div>
+        <div class="tok k"></div><div class="tok d"></div><div class="tok k"></div>
+        <div class="tok k"></div><div class="tok k"></div><div class="tok k"></div>
+        <span class="tkey">kept&nbsp;&nbsp;|&nbsp;&nbsp;evicted from history only</span>
+      </div>
+    </div>
+
+    <div class="mod" style="left:22px; top:362px; width:316px; height:104px;">
+      <h4>Eviction trigger</h4>
+      <p>When a layer exceeds b&#8467;, the lowest-score historical entries are evicted; sinks and the recent window are protected.</p>
+    </div>
+    <div class="mod" style="left:364px; top:362px; width:312px; height:104px;">
+      <h4>Scheduler</h4>
+      <p>Online profile of attention entropy per layer; deep layers keep fewer entries, shallow layers keep more.</p>
+    </div>
+
+    <div class="mod" style="left:22px; top:494px; width:654px; height:82px;">
+      <h4>Compressed cache &#776;&#8467; &#8826; full cache</h4>
+      <p>Queries attend only over retained entries: shorter attention sweeps and a capped footprint.</p>
+    </div>
+  </div>
+
+  <div class="stage s3">
+    <div class="stage-label">Decoding</div>
+    <div class="mod" style="left:22px; top:44px; width:312px;">
+      <h4>Next token x&#8345;&#8331;&#8321;</h4>
+      <p>Standard autoregressive decoding; the model is untouched and training-free.</p>
+    </div>
+    <div class="mod" style="left:22px; top:158px; width:312px;">
+      <h4>Throughput gain</h4>
+      <p>Attention sweep shrinks with the cache: up to 2.0x decode speedup at 128K tokens.</p>
+    </div>
+    <div class="mod sagemod" style="left:22px; top:272px; width:312px;">
+      <h4>Memory at 20% budget</h4>
+      <p>16.8 GB to 3.8 GB KV cache at 32K (LLaMA-2-7B); 74K context fits a 24 GB GPU.</p>
+    </div>
+    <div class="mod" style="left:22px; top:402px; width:312px;">
+      <h4>Quality retention</h4>
+      <p>LongBench 98.0% of full-cache average; 94.8% needle accuracy at 128K.</p>
+    </div>
+  </div>
+
+  <svg class="arrows" viewBox="0 0 1480 760">
+    <defs>
+      <marker id="ah" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#64748B"/>
+      </marker>
+      <marker id="ahA" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#D97757"/>
+      </marker>
+    </defs>
+    <!-- input stream -> gated cache (absolute stage coords) -->
+    <line x1="334" y1="145" x2="396" y2="145" stroke="#64748B" stroke-width="2" marker-end="url(#ah)"/>
+    <line x1="334" y1="390" x2="396" y2="390" stroke="#64748B" stroke-width="2" marker-end="url(#ah)"/>
+    <line x1="334" y1="510" x2="396" y2="510" stroke="#64748B" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+    <!-- ACS (B1 400-720,108-215) -> DRE (B3 top 276) -->
+    <line x1="560" y1="217" x2="560" y2="272" stroke="#D97757" stroke-width="2.2" marker-end="url(#ahA)"/>
+    <!-- LABA (B2 742-1054,108-215) -> DRE -->
+    <line x1="898" y1="217" x2="898" y2="272" stroke="#D97757" stroke-width="2.2" marker-end="url(#ahA)"/>
+    <!-- DRE -> eviction trigger (B4 426-530) -->
+    <line x1="560" y1="398" x2="560" y2="422" stroke="#64748B" stroke-width="2" marker-end="url(#ah)"/>
+    <!-- scheduler (B5 742-1054,426-530) -> compressed cache (B6 top 558) -->
+    <line x1="898" y1="532" x2="898" y2="554" stroke="#D97757" stroke-width="2" marker-end="url(#ahA)"/>
+    <!-- eviction trigger -> compressed cache -->
+    <line x1="560" y1="532" x2="560" y2="554" stroke="#64748B" stroke-width="2" marker-end="url(#ah)"/>
+    <!-- compressed cache (B6 right edge 1054) -> next token (C1 1120,108-183) -->
+    <line x1="1056" y1="588" x2="1116" y2="152" stroke="#64748B" stroke-width="2" marker-end="url(#ah)"/>
+  </svg>
+
+  <div class="legend">
+    <div class="li"><div class="swatch" style="background:#FBEFE9;"></div>SAGE component</div>
+    <div class="li"><div class="swatch" style="background:#FFFFFF;"></div>Standard decoding component</div>
+    <div class="li"><div class="swatch" style="background:#DCEDE3;"></div>retained entry</div>
+    <div class="li"><div class="swatch" style="background:#F6DED4;"></div>evicted entry</div>
+    <div class="li"><span style="color:#D97757; font-weight:700;">&#8594;</span>&nbsp;data / control flow</div>
+  </div>
+</div>
+</body>
+</html>

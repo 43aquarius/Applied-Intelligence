@@ -1,0 +1,31 @@
+% Highlights.tex --- Applied Intelligence submission
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[a4paper, top=2.6cm, bottom=2.6cm, left=2.6cm, right=2.6cm]{geometry}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{enumitem}
+\setmainfont{Liberation Serif}
+\setstretch{1.2}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+  {\large\bfseries Highlights}\\[0.4em]
+  {\normalsize Sparsity-Adaptive Gated Eviction for Memory-Efficient
+   Long-Context Inference of Large Language Models}
+\end{center}
+
+\vspace{1.2em}
+
+\begin{itemize}[leftmargin=1.8em, itemsep=6pt]
+
+\item KV cache eviction is unified as one global memory-contract allocation
+\item Layer-adaptive budgets re-allocate cache capacity online from attention entropy
+\item Decayed confidence with a protected reservoir keeps 94.8\% retrieval at 128K
+\item A 20\% cache budget retains 98.0\% of the LongBench average across 11 tasks
+\item KV memory shrinks 4.4x and decode throughput reaches 2.02x at 128K context
+\end{itemize}
+
+\end{document}

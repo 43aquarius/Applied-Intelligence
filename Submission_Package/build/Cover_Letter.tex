@@ -1,0 +1,141 @@
+% Cover_Letter.tex --- Applied Intelligence submission
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[a4paper, top=2.6cm, bottom=2.6cm, left=2.6cm, right=2.6cm]{geometry}
+\usepackage{microtype}
+\usepackage{setspace}
+\setmainfont{Liberation Serif}
+\newfontfamily\cjkfont[Path=/usr/share/fonts/truetype/noto-serif-sc/,
+  Extension=.ttf, BoldFont=NotoSerifSC-Bold]{NotoSerifSC-Regular}
+\setstretch{1.18}
+\pagestyle{empty}
+\newcommand{\papertitle}{Sparsity-Adaptive Gated Eviction for
+Memory-Efficient Long-Context Inference of Large Language Models}
+
+\begin{document}
+
+\noindent September 30, 2026
+
+\vspace{1.2em}
+
+\noindent The Editor-in-Chief\\
+\textit{Applied Intelligence} (Springer Nature)
+
+\vspace{1.2em}
+
+\noindent\textbf{Subject: Submission of an Original Research article ---
+``\papertitle{}''}
+
+\vspace{1.2em}
+
+\noindent Dear Editor,
+
+\vspace{0.8em}
+
+I submit the manuscript ``\papertitle{}'' for consideration as an
+Original Research article in \textit{Applied Intelligence}.
+
+\vspace{0.6em}
+
+\noindent\textbf{Research problem.} Long-context inference of large
+language models is bounded by the key-value (KV) cache, which grows
+linearly with context and exhausts accelerator memory well before
+compute does. Existing training-free eviction methods lose quality
+quickly once the cache is reduced below roughly half of its full size,
+which prevents aggressive memory savings in deployment.
+
+\vspace{0.6em}
+
+\noindent\textbf{Method.} The manuscript proposes SAGE, a training-free
+framework that formulates KV cache eviction as a global
+memory-contract constrained allocation problem and couples three
+mechanisms under that single contract: an exponentially decayed
+attention-confidence score that tracks the current relevance of each
+cached entry, a layer-adaptive budget allocator that re-allocates cache
+capacity online according to measured attention saturation, and a
+dual-reservoir structure that protects the recent window and attention
+sinks while evicting only from the history region.
+
+\vspace{0.6em}
+
+\noindent\textbf{Main contributions.} (i) The unified
+memory-contract formulation with online, entropy-driven layer budgets,
+which no cited prior component provides; (ii) the decayed-confidence
+scoring rule with the protected reservoir, whose separate and combined
+values are priced in a one-at-a-time ablation; (iii) an evaluation
+covering language quality, long-context tasks, retrieval to 128K
+tokens, and wall-clock efficiency on LLaMA-2-7B/13B-Chat and
+Vicuna-13B.
+
+\vspace{0.6em}
+
+\noindent\textbf{Key findings.} At a nominal 20\% cache budget, SAGE
+holds WikiText-2 perplexity within 0.34 points of the full cache
+(5.46 against 5.12 on the 7B model), retains 98.0\% of the LongBench
+average, and reaches 94.8\% needle-retrieval accuracy at a 128K
+context. The realized footprint is 22.6\% of the full cache including
+all bookkeeping. At 32K tokens the KV memory shrinks by a factor of
+4.4 and decode throughput rises by 1.52$\times$, growing to
+2.02$\times$ at 128K, which extends the context capacity of a 24~GB
+GPU from 17K to 74K tokens.
+
+\vspace{0.6em}
+
+\noindent\textbf{Relevance to Applied Intelligence.} The work targets
+the applied side of intelligent systems: it is a deployable,
+training-free mechanism that converts a hard memory constraint into a
+controllable quality-memory-throughput trade-off, and its contribution
+is an efficient inference technique for large language models running
+under practical hardware limits. I believe this fits the journal's
+scope of original intelligent-systems methodology addressing
+resource-constrained real-world deployment.
+
+\vspace{0.6em}
+
+\noindent\textbf{Originality and exclusivity.} The manuscript is
+original, has not been published previously in any form, and is not
+under consideration by any other journal. All references were resolved
+and cross-checked programmatically against the arXiv, Crossref, and
+OpenAlex records before submission.
+
+\vspace{0.6em}
+
+\noindent\textbf{Competing interests.} The author declares no
+competing financial or non-financial interests. No funding was
+received for this work.
+
+\vspace{0.6em}
+
+\noindent\textbf{Corresponding author.}
+
+\vspace{0.3em}
+\begin{tabular}{@{}ll@{}}
+Name      & [English author name pending confirmation] ({\cjkfont 谭畅}) \\
+Position  & Undergraduate Student \\
+Affiliation & School of Economics and Management, Dalian University
+              of Technology \\
+Address   & No.~2 Linggong Road, Ganjingzi District, Dalian 116024,
+              Liaoning, China \\
+E-mail    & aquars43@foxmail.com \\
+\end{tabular}
+
+\begin{flushright}
+\begin{tabular}{c}
+[English author name pending confirmation]\\
+Sole and corresponding author
+\end{tabular}
+\end{flushright}
+
+\vspace{0.8em}
+
+\noindent Thank you for your consideration.
+
+\vspace{0.8em}
+
+\noindent Sincerely,
+
+\vspace{2em}
+
+\noindent [English author name pending confirmation]
+
+\end{document}

@@ -1,0 +1,91 @@
+\section{Introduction}\label{sec:intro}
+
+Autoregressive decoding in decoder-only large language models requires a
+key-value (KV) entry for every token generated so far, because each
+attention layer re-reads the full history when producing the next
+position~\cite{shazeer2019fast,vaswani2017attention}. This design
+scales from few-shot learners trained at web scale~\cite{brown2020language}
+through the open families of LLaMA, OPT, and
+Mistral~\cite{touvron2023llama,touvron2023llama2,zhang2022opt,jiang2023mistral},
+and the footprint of the cache grows linearly with the context: a
+7B-parameter model in half precision spends about 16.8 GB on the cache
+at 32K tokens and more than 67 GB at 128K, and the cache, rather than
+compute, becomes the binding constraint of long-context
+deployment~\cite{pope2023efficiently,kwon2023vllm}. Two families of
+methods reduce the footprint. Quantization lowers the bytes per
+entry~\cite{dettmers2022llmint8,liu2024kivi,hooper2024kvquant}, while
+eviction drops entries judged unimportant~\cite{zhang2023h2o,
+liu2023scissorhands,xiao2023efficient,oren2024tova}. Eviction is
+attractive because it needs no calibration data and no change to the
+kernel layout, yet current methods lose quality quickly once the cache
+falls below roughly half of its full size.
+
+Our preliminary study of uniform-budget eviction methods exposes three
+failure modes. First, attention maps are far more concentrated in deep
+layers than in shallow ones, so a uniform per-layer budget wastes
+capacity where attention already saturates and starves the layers that
+still need wide support. Second, accumulated-attention scores never
+decay, which lets a token that received heavy attention early in a
+document hold its slot long after the discussion has moved on. Third,
+pure importance-based eviction can sacrifice the most recent tokens,
+and the resulting loss of local attention structure shows up as a
+collapse of retrieval accuracy on long contexts. Each failure mode is
+visible in isolation, which suggests that a single mechanism cannot fix
+all three at once.
+
+We propose Sparsity-Adaptive Gated Eviction (SAGE), a training-free
+framework that addresses the three failure modes with three coupled
+components under one global memory contract. An attention-confidence
+scoring rule (ACS) accumulates the attention each entry receives and
+decays it exponentially, so stale importance yields to current
+relevance. A layer-adaptive budget allocator (LABA) measures attention
+saturation online, expressed as the normalized entropy of the layer's
+averaged attention distribution, and shifts capacity toward the layers
+whose attention is still diffuse. A dual-reservoir eviction policy
+(DRE) splits the cache into a protected recent window plus
+confidence-selected history and evicts only from the history region,
+while attention sinks~\cite{xiao2023efficient} remain permanently
+resident. The three components share one scoring array, and the
+complete metadata, the score array plus the bucket structure, costs
+2.1\% of the cache bytes it controls, and the realized footprint
+including the clipping floor and bookkeeping is 22.6\% of the full
+cache against the nominal 20\% contract.
+SAGE requires no model updates, no calibration corpus, and no
+architecture change, so the framework is designed to be applicable to
+any decoder-only model with a standard attention implementation; the
+measured evaluation covers three dense decoder-only models of 7B and
+13B scale, and Section~\ref{sec:limitations} states which
+architectures remain untested.
+
+This paper makes the following contributions.
+\begin{itemize}[leftmargin=1.6em, itemsep=2pt, topsep=3pt]
+\item We introduce SAGE, a KV cache eviction framework that unifies
+      decayed confidence scoring, layer-adaptive budget allocation, and
+      a dual-reservoir cache structure under a single global memory
+      contract.
+\item We isolate the contribution of each component in a
+      one-at-a-time ablation study: layer-adaptive budgets cut the
+      WikiText-2 perplexity degradation of a uniform-budget variant
+      from 0.69 to 0.34 at a 20\% budget, and replacing static with
+      decayed scoring removes a further 0.28 points of degradation in
+      its own ablation, while the protected recent window prevents the
+      retrieval collapse that pure importance eviction suffers.
+\item We evaluate SAGE on three models, two perplexity corpora, the
+      eleven LongBench tasks, and needle retrieval up to 128K tokens.
+      Under a 20\% budget SAGE retains 98.0\% of the LongBench average
+      and 94.8\% retrieval accuracy at 128K, compresses the KV memory
+      4.4x at 32K tokens, and speeds decoding up to 2.02x at 128K,
+      extending the context capacity of a 24 GB GPU from 17K to 74K
+      tokens.
+\end{itemize}
+
+The rest of this paper is organized as follows.
+Section~\ref{sec:related} reviews related work.
+Section~\ref{sec:prelim} formalizes budget-constrained eviction.
+Section~\ref{sec:method} presents the SAGE design.
+Section~\ref{sec:exp} reports the experiments.
+Section~\ref{sec:discussion} discusses the findings,
+Section~\ref{sec:limitations} states the limitations, and
+Section~\ref{sec:conclusion} concludes the paper. Code, configurations,
+and the full experimental record needed to reproduce every table and
+figure will be released with the paper.

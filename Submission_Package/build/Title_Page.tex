@@ -1,0 +1,96 @@
+% SAGE_AppliedIntelligence_Title_Page.tex
+% Separate title page with full author details and declarations,
+% as required for Applied Intelligence submission.
+\documentclass[11pt,a4paper]{article}
+\usepackage{fontspec}
+\usepackage[a4paper, top=2.6cm, bottom=2.6cm, left=2.6cm, right=2.6cm]{geometry}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,urlcolor=blue!55!black]{hyperref}
+\setmainfont{Liberation Serif}
+\newfontfamily\cjkfont[Path=/usr/share/fonts/truetype/noto-serif-sc/,
+  Extension=.ttf, BoldFont=NotoSerifSC-Bold]{NotoSerifSC-Regular}
+\setstretch{1.2}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries Sparsity-Adaptive Gated Eviction for Memory-Efficient
+   Long-Context Inference of Large Language Models\par}
+\end{center}
+
+\vspace{1.6em}
+
+\noindent\textbf{Title Page --- Applied Intelligence submission}
+
+\vspace{1.2em}
+
+\noindent\begin{tabular}{@{}ll@{}}
+\textbf{Article type:}      & Original Research \\
+\textbf{Author:}            & [English author name pending confirmation]
+                              ({\cjkfont 谭畅}) \\
+\textbf{Position:}          & Undergraduate Student \\
+\textbf{Affiliation:}       & School of Economics and Management,
+                              Dalian University of Technology \\
+\textbf{Address:}           & No.~2 Linggong Road, Ganjingzi District,
+                              Dalian 116024, Liaoning, China \\
+\textbf{E-mail:}            & \texttt{aquars43@foxmail.com} \\
+\textbf{Corresponding author:} & The sole author is the corresponding author. \\
+\textbf{ORCID:}             & (to be provided by the author, optional) \\
+\end{tabular}
+
+\vspace{1.2em}
+
+\noindent\textbf{Note on the author name.} The English form of the author
+name requires confirmation by the author before submission. Two standard
+formats are available: family name first (``Tan Chang'') or given name
+first (``Chang Tan''). The Chinese characters, affiliation, address, and
+e-mail above are confirmed. Please update the byline of the manuscript
+(\texttt{source/main.tex}, author block) accordingly.
+
+\vspace{1.6em}
+
+\noindent\rule{\textwidth}{0.4pt}
+
+\vspace{1.2em}
+
+\noindent{\large\bfseries Declarations}
+
+\vspace{0.8em}
+
+\noindent\textbf{Funding.} The author did not receive support from any
+organization for the submitted work.
+
+\vspace{0.5em}
+
+\noindent\textbf{Competing interests.} The author has no relevant
+financial or non-financial interests to disclose.
+
+\vspace{0.5em}
+
+\noindent\textbf{Data availability.} The benchmark corpora used in this
+study (WikiText-2, PG19, LongBench, and the needle-in-a-haystack
+protocol) are publicly available through their original releases. The
+complete experimental record that reproduces every table and figure ---
+per-seed values, per-task scores, and raw timing and memory counters ---
+will be released in a public repository upon acceptance.
+
+\vspace{0.5em}
+
+\noindent\textbf{Code availability.} The SAGE implementation and all
+configurations will be released under a permissive license upon
+acceptance.
+
+\vspace{0.5em}
+
+\noindent\textbf{Author contributions.} The sole author performed all
+parts of the study and wrote the manuscript.
+
+\vspace{0.5em}
+
+\noindent\textbf{Acknowledgements.} Not applicable; there is no
+acknowledgement content to declare.
+
+\end{document}
