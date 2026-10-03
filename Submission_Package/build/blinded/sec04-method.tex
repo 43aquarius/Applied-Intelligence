@@ -18,14 +18,14 @@ is accounted for in Section~\ref{sec:method_complexity}.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\textwidth]{fig1_architecture.png}
+  \includegraphics[width=\textwidth]{Fig1.png}
   \caption{Architecture of SAGE. The input stream (left) feeds the
   per-layer gated cache (middle), where confidence scoring (ACS),
   layer-adaptive budgets (LABA), and dual-reservoir eviction (DRE)
   operate online under one global memory contract $B$; the decoding
   stage (right) consumes the compressed cache. Coral modules mark the
   SAGE-specific components; kept and evicted cache entries are shown
-  in green and orange, respectively.}
+  in green and orange, respectively}
   \label{fig:arch}
 \end{figure}
 
@@ -96,12 +96,12 @@ cache.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.88\textwidth]{fig3_layer_budget.pdf}
+  \includegraphics[width=0.88\textwidth]{Fig3.pdf}
   \caption{Layer-wise retention ratios allocated by LABA for
   LLaMA-2-7B under a global $0.20$ contract. The dashed line marks the
   uniform split that fixed-budget methods impose. The mean retention is
   $0.213$, close to the nominal contract, with the excess coming from
-  the clipping floor.}
+  the clipping floor}
   \label{fig:layer_budget}
 \end{figure}
 

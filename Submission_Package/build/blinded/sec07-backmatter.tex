@@ -1,26 +1,5 @@
-% ---- Declarations (Springer journal requirement) ----
-\section*{Declarations}
-
-\paragraph*{Funding.}
-The authors did not receive support from any organization for the
-submitted work.
-
-\paragraph*{Conflict of interest.}
-The authors have no relevant financial or non-financial interests to
-disclose.
-
-\paragraph*{Data availability.}
-The benchmark corpora used in this study are publicly available
-through their original releases. The SAGE implementation, all
-configurations, and the complete experimental record that reproduces
-every table and figure will be released in a public repository upon
-acceptance.
-
-\paragraph*{Code availability.}
-The code will be released under a permissive license upon acceptance.
-
-% ---- Appendix ----
-\appendix
+% NOTE: Declarations are set in main.tex before \begin{appendices};
+% the appendix material starts directly here.
 \needspace{0.35\textheight}
 \section{Hyperparameters and additional results}\label{app:hyper}
 
@@ -92,12 +71,12 @@ $5.9\%$ at the default.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.95\textwidth]{fig9_appendix_sensitivity.pdf}
+  \includegraphics[width=0.95\textwidth]{Fig9.pdf}
   \caption{Appendix sensitivity sweeps (LLaMA-2-7B-Chat, $20\%$
   budget). Left: perplexity versus the contrast exponent $\tau$; the
   $\tau = 0$ intercept reproduces the uniform split of the ablation.
   Right: perplexity (left axis) and prefill overhead (right axis)
-  versus the scheduler interval $K$.}
+  versus the scheduler interval $K$}
   \label{fig:app_sens}
 \end{figure}
 

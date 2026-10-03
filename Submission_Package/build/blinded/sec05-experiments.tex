@@ -148,11 +148,11 @@ StreamingLLM & 6.91 & 15.98 & 36.30 & 14.08 & 32.56 & 73.94 \\
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.98\textwidth]{fig2_ppl_budget.pdf}
+  \includegraphics[width=0.98\textwidth]{Fig2.pdf}
   \caption{Perplexity versus KV budget on LLaMA-2-7B-Chat. Bands show
   one standard deviation over 3 seeds. SAGE stays within $0.34$
   perplexity of the full cache at a $20\%$ budget and degrades
-  gracefully to $10\%$, while uniform-budget baselines diverge.}
+  gracefully to $10\%$, while uniform-budget baselines diverge}
   \label{fig:ppl}
 \end{figure}
 
@@ -221,11 +221,11 @@ Avg          & 39.3 & \textbf{38.5} & 37.3 & 36.1 & 33.5 \\
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.62\textwidth]{fig4_longbench_radar.pdf}
+  \includegraphics[width=0.62\textwidth]{Fig4.pdf}
   \caption{LongBench profiles at a $20\%$ KV budget (LLaMA-2-13B-Chat).
   The dotted gray outline is the full-cache reference. SAGE tracks the
   reference on every axis, while eviction baselines shrink most on the
-  retrieval-heavy tasks.}
+  retrieval-heavy tasks}
   \label{fig:radar}
 \end{figure}
 
@@ -276,12 +276,12 @@ StreamingLLM & 94.1 & 88.5 & 74.5 & 55.6 & 38.8 \\
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.98\textwidth]{fig5_needle_heatmap.pdf}
+  \includegraphics[width=0.98\textwidth]{Fig5.pdf}
   \caption{Needle retrieval by document depth and context length at a
   $20\%$ budget (LLaMA-2-13B-Chat). H2O develops a systematic dark
   region at deep positions and long contexts, the signature of
   evicting the needle entry; SAGE stays a flat plateau and decays
-  gently with length.}
+  gently with length}
   \label{fig:needle}
 \end{figure}
 
@@ -338,12 +338,12 @@ Ctx & Full & SAGE & Full & SAGE & Full & SAGE & Speedup \\
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.98\textwidth]{fig6_efficiency.pdf}
+  \includegraphics[width=0.98\textwidth]{Fig6.pdf}
   \caption{KV memory and decode throughput versus context length
   (LLaMA-2-7B-Chat, one A100-40GB). SAGE at a $20\%$ contract cuts the
   cache $4.4\times$ at 32K and turns the attention-sweep cost into a
   throughput speedup that grows with context, reaching $2.02\times$ at
-  128K.}
+  128K}
   \label{fig:eff}
 \end{figure}
 
@@ -388,28 +388,29 @@ total gap to the full cache.
 \centering
 \caption{Ablation study on LLaMA-2-7B-Chat at a $20\%$ budget. Lower
 perplexity and higher scores are better; the full-cache references are
-$5.12$ and $39.3$.}
+$5.12$ and $39.3$. The first removal reverts to a uniform per-layer
+budget and the fourth to a static, prefetch-time profile.}
 \label{tab:ablation}
 \small
 \begin{tabular*}{0.9\textwidth}{@{\extracolsep{\fill}} l ccc}
 \toprule
 Configuration & Wiki-2 ppl & LongBench avg & Needle@128K (\%) \\
 \midrule
-SAGE (full)                          & \textbf{5.46} & \textbf{38.5} & \textbf{94.8} \\
-w/o layer-adaptive budgets (uniform $20\%$) & 5.81 & 37.3 & 91.4 \\
-w/o recent-token reservoir           & 6.05 & 36.4 & 88.2 \\
+SAGE (full)                     & \textbf{5.46} & \textbf{38.5} & \textbf{94.8} \\
+w/o layer-adaptive budgets      & 5.81 & 37.3 & 91.4 \\
+w/o recent-token reservoir      & 6.05 & 36.4 & 88.2 \\
 w/o confidence decay ($\lambda{=}1$) & 5.74 & 37.7 & 90.6 \\
-w/o online scheduler (static profile) & 5.89 & 36.9 & 89.9 \\
+w/o online scheduler           & 5.89 & 36.9 & 89.9 \\
 \bottomrule
 \end{tabular*}
 \end{table}
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.98\textwidth]{fig7_ablation.pdf}
+  \includegraphics[width=0.98\textwidth]{Fig7.pdf}
   \caption{Ablation of the SAGE components at a $20\%$ budget
   (LLaMA-2-7B-Chat). Dotted lines mark the full-cache references. Each
-  component contributes an identifiable share of the quality gap.}
+  component contributes an identifiable share of the quality gap}
   \label{fig:ablation}
 \end{figure}
 
@@ -468,12 +469,12 @@ factor $\lambda$ with the remaining settings fixed.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.98\textwidth]{fig8_sensitivity.pdf}
+  \includegraphics[width=0.98\textwidth]{Fig8.pdf}
   \caption{Sensitivity of WikiText-2 perplexity (left axis) and
   128K needle accuracy (right axis) to the reservoir size $r$ and the
   decay factor $\lambda$ (LLaMA-2-7B-Chat, $20\%$ budget). Vertical
   dotted lines mark the defaults. Both hyperparameters sit on flat
-  plateaus, and $\lambda = 1$ is a cliff.}
+  plateaus, and $\lambda = 1$ is a cliff}
   \label{fig:sens}
 \end{figure}
 

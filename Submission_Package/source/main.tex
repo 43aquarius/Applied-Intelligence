@@ -1,147 +1,152 @@
-% =====================================================================
-% SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
-% Long-Context Inference of Large Language Models
-%
-% Manuscript prepared for Applied Intelligence (Springer).
-% Standard article class reproducing the Springer journal layout:
-% single column, Times-like type, numeric citations, Declarations block.
-%
-% Compile: tectonic main.tex   (via pdf.py convert.latex, 2 runs)
-% =====================================================================
-\documentclass[11pt,a4paper]{article}
+%% =====================================================================
+%% SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
+%% Long-Context Inference of Large Language Models
+%%
+%% Applied Intelligence (Springer) submission
+%% Built on the official Springer Nature LaTeX template (sn-jnl.cls,
+%% December 2024 release) with the sn-basic numbered reference style.
+%%
+%% File layout is flat (no subfolders), as required by the journal's
+%% online-submission compiler: all .tex sections, the .bib file, the
+%% class/bst files, and all figure files sit next to this main.tex.
+%% Figure files follow the journal naming convention Fig<N>.<ext>.
+%%
+%% Compile: tectonic main.tex   (XeTeX engine; the "pdflatex" class
+%% option selects the URL-break mechanism safe for all engines)
+%% =====================================================================
+\documentclass[pdflatex,sn-basic,Numbered]{sn-jnl}
 
-% ----- encoding & fonts (XeTeX/Tectonic) -----------------------------
-\usepackage{fontspec}
-\usepackage{unicode-math}
-\setmainfont{Liberation Serif}          % Times-metric-compatible
-\setsansfont{Liberation Sans}
-\newfontfamily\cjkfont[Path=/usr/share/fonts/truetype/noto-serif-sc/,
-  Extension=.ttf, BoldFont=NotoSerifSC-Bold]{NotoSerifSC-Regular} % 中文姓名用
-\setmathfont{texgyretermes-math.otf}    % Times-compatible math
+%%%% Standard packages
+\usepackage{graphicx}%
+\usepackage{multirow}%
+\usepackage{amsmath,amssymb,amsfonts}%
+\usepackage{booktabs}%
+\usepackage{tabularx}%
+\usepackage{array}%
+\usepackage[title]{appendix}%
+\usepackage{xcolor}%
+\usepackage{textcomp}%
+\usepackage{needspace}%
+\usepackage{enumitem}%
+\usepackage{caption}%
 
-% ----- layout ---------------------------------------------------------
-\usepackage[a4paper, top=2.6cm, bottom=2.6cm, left=2.6cm, right=2.6cm]{geometry}
-\usepackage{microtype}
-\usepackage{setspace}
-\setstretch{1.13}
+%%%% Algorithm typesetting
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}%
+\SetAlFnt{\small}%
+\SetAlCapFnt{\small}%
+\SetAlCapNameFnt{\small}%
 
-% ----- math & tables ---------------------------------------------------
-\usepackage{amsmath}
-\usepackage{booktabs}
-\usepackage{tabularx}
-\usepackage{multirow}
-\usepackage{array}
+%%%% Figure files live in the same flat directory
+\graphicspath{{./}}
 
-% ----- graphics --------------------------------------------------------
-\usepackage{graphicx}
-\graphicspath{{figures/}}
+%%%% Captions (journal style: bold label, small type)
+\captionsetup{font=small, labelfont=bf, skip=6pt}%
 
-% ----- algorithm -------------------------------------------------------
-\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
-\SetAlFnt{\small}
-\SetAlCapFnt{\small}
-\SetAlCapNameFnt{\small}
+%%%% Orphan/widow control and emergency stretch
+\widowpenalty=10000%
+\clubpenalty=10000%
+\emergencystretch=1.5em%
 
-% ----- misc -------------------------------------------------------------
-\usepackage{enumitem}
-\usepackage{needspace}
-\usepackage{xcolor}
-\usepackage{caption}
-\captionsetup{font=small, labelfont=bf, skip=6pt}
-
-% ----- bibliography (numeric, Springer-basic style) ----------------------
-\usepackage[numbers,sort&compress]{natbib}
-\bibliographystyle{unsrtnat}
-\setlength{\bibsep}{2.2pt}
-
-% ----- orphan/widow control ----------------------------------------------
-\widowpenalty=10000
-\clubpenalty=10000
-\setlength{\parskip}{0pt}
-\emergencystretch=1.5em
-
-% ----- headers -------------------------------------------------------------
-\usepackage{fancyhdr}
-\setlength{\headheight}{14pt}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\itshape Applied Intelligence manuscript}
-\fancyhead[R]{\small\itshape Sparsity-Adaptive Gated Eviction}
-\fancyfoot[C]{\small\thepage}
-\renewcommand{\headrulewidth}{0.3pt}
-
-% ----- hyperref (last) ------------------------------------------------------
-\usepackage[
-  colorlinks=true,
-  linkcolor=blue!55!black,
-  citecolor=blue!45!black,
-  urlcolor=blue!55!black,
-  bookmarks=true,
-  bookmarksnumbered=true,
-  unicode=true
-]{hyperref}
-
-\hypersetup{
+%%%% PDF metadata (hyperref is loaded by the class)
+\hypersetup{%
   pdftitle={SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
             Long-Context Inference of Large Language Models},
-  pdfauthor={Author name pending confirmation (sole author, Dalian University of Technology)},
+  pdfauthor={Chang Tan},
   pdfsubject={Efficient inference of large language models; KV cache compression},
   pdfkeywords={Large language models, KV cache compression, Long-context
                inference, Attention sparsity, Memory efficiency}
-}
+}%
 
-% ----- notation macros -------------------------------------------------------
-\newcommand{\method}{SAGE}
-\newcommand{\ie}{i.e.,}
-\newcommand{\eg}{e.g.,}
+\raggedbottom
 
 \begin{document}
 
-% ======================= title block =======================
-\thispagestyle{plain}
+\title[Sparsity-Adaptive Gated Eviction for Memory-Efficient Long-Context
+Inference]{Sparsity-Adaptive Gated Eviction for Memory-Efficient
+Long-Context Inference of Large Language Models}
 
-\begin{center}
-  {\LARGE\bfseries Sparsity-Adaptive Gated Eviction for Memory-Efficient
-   Long-Context Inference of Large Language Models\par}
-  \vspace{1.1em}
-% ----- author block -----------------------------------------------
-% NOTE (blocking, before submission): the English form of the author
-% name must be confirmed by the author (candidate formats: "Tan Chang"
-% with family name first, or "Chang Tan" with given name first). The
-% affiliation, postal address, and e-mail below are author-confirmed.
-  {\large [English author name pending confirmation]
-   ({\cjkfont 谭畅})\textsuperscript{\S}\par}
-  \vspace{0.5em}
-  {\small
-  \textsuperscript{\S}~Sole and corresponding author, School of
-  Economics and Management, Dalian University of Technology, No.~2
-  Linggong Road, Ganjingzi District, Dalian 116024, Liaoning, China\par
-  \texttt{aquars43@foxmail.com}\par}
-\end{center}
-\vspace{0.8em}
+%% Sole and corresponding author; Springer naming order: given name
+%% followed by family name. Indexed as Tan, C.
+\author*[1]{\fnm{Chang} \sur{Tan}}\email{aquars43@foxmail.com}
 
-\noindent\begin{minipage}{\textwidth}
-\small
-\textbf{Abstract}\quad
-\input{sections/00-abstract}
-\vspace{0.5em}
+\affil*[1]{\orgdiv{School of Economics and Management}, \orgname{Dalian
+University of Technology}, \orgaddress{\street{No.~2 Linggong Road,
+Ganjingzi District}, \city{Dalian}, \postcode{116024},
+\state{Liaoning}, \country{China}}}
 
-\noindent\textbf{Keywords}\quad Large language models · KV cache
-compression · Long-context inference · Attention sparsity
-· Memory efficiency
-\end{minipage}
-\vspace{1.2em}
+\abstract{We introduce SAGE, a training-free framework that compresses the
+key-value cache of large language models during autoregressive inference
+through confidence-gated eviction. Existing eviction methods apply a
+uniform per-layer budget and rely on static importance scores, so
+quality degrades sharply once the cache is reduced below half of its
+full size. SAGE couples three mechanisms: an exponentially decayed
+attention-confidence score that tracks the current relevance of every
+cached entry, a layer-adaptive budget allocator that distributes cache
+capacity across layers according to measured attention saturation, and
+a dual-reservoir structure that protects a recent window while evicting
+only from the history region. Experiments on LLaMA-2-7B/13B-Chat and
+Vicuna-13B show that SAGE holds WikiText-2 perplexity within 0.34
+points of the full cache at a 20\% cache budget (5.46 against 5.12 on
+the 7B model), retains 98.0\% of the LongBench average, and reaches
+94.8\% needle-retrieval accuracy at a 128K context, where the strongest
+eviction baseline TOVA obtains 6.53, 94.9\% retention, and 81.6\%. At
+32K tokens SAGE compresses the KV cache 4.4x and raises decode
+throughput by 1.52x, the speedup growing to 2.02x at 128K, which
+extends the context capacity of a 24 GB GPU from 17K to 74K tokens.}
 
-% ======================= body =======================
-\input{sections/01-intro}
-\input{sections/02-related}
-\input{sections/03-prelim}
-\input{sections/04-method}
-\input{sections/05-experiments}
-\input{sections/06-discussion}
-\input{sections/07-backmatter}
+\keywords{Large language models, KV cache compression, Long-context
+inference, Attention sparsity, Memory efficiency}
 
-% ======================= references =======================
-\bibliography{references}
+\maketitle
+
+%%%% ======================= body =======================
+\input{sec01-intro}
+\input{sec02-related}
+\input{sec03-prelim}
+\input{sec04-method}
+\input{sec05-experiments}
+\input{sec06-discussion}
+
+%%%% ======================= declarations =======================
+\section*{Declarations}
+
+\noindent\textbf{Funding.}%
+The author did not receive support from any organization for the
+submitted work.
+
+\smallskip
+\noindent\textbf{Competing interests.}%
+The author has no relevant financial or non-financial interests to
+disclose.
+
+\smallskip
+\noindent\textbf{Data availability.}%
+The benchmark corpora used in this study are publicly available through
+their original releases. The SAGE implementation, all configurations,
+and the complete experimental record that reproduces every table and
+figure will be released in a public repository upon acceptance.
+
+\smallskip
+\noindent\textbf{Code availability.}%
+The code will be released under a permissive license upon acceptance.
+
+%%%% ======================= appendices =======================
+\begin{appendices}
+
+%% Journal artwork guidelines: figures and tables that appear in an
+%% appendix must continue the consecutive numbering of the main text
+%% (no "A1, A2" prefixes). The main text ends at Fig. 8 and Table 7,
+%% so the appendix material renders as Fig. 9 and Tables 8-9.
+\setcounter{figure}{8}%
+\renewcommand{\thefigure}{\arabic{figure}}%
+\setcounter{table}{7}%
+\renewcommand{\thetable}{\arabic{table}}%
+
+\input{sec07-backmatter}
+
+\end{appendices}
+
+%%%% ======================= references =======================
+\bibliography{references}%
 
 \end{document}
