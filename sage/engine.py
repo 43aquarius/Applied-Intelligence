@@ -216,7 +216,10 @@ class Engine:
         attention_mask=None: the registered sage_eager interface builds a
         per-layer causal mask from each layer's true key length, so layers
         may hold DIFFERENT numbers of retained tokens. position_ids are
-        ABSOLUTE; cache_position is bookkeeping only."""
+        ABSOLUTE; cache_position is bookkeeping only. Input tensors are
+        moved to the engine device here (device-agnostic callers)."""
+        ids = ids.to(self.device)
+        pos_ids = pos_ids.to(self.device)
         have_cache = bool(self.kv) and self.kv[0] is not None
         q = ids.shape[1]
         past = self.adapter.build(self.kv) if have_cache else None
@@ -296,8 +299,9 @@ class Engine:
             keep = policy.select_keep(self.positions[l], self.scores[l], b_l, t_after)
             idx = np.where(keep)[0]
             k, v = self.kv[l]
-            self.kv[l] = (k[:, :, idx, :].contiguous(),
-                          v[:, :, idx, :].contiguous())
+            t_idx = torch.from_numpy(idx.astype(np.int64)).to(k.device)
+            self.kv[l] = (k[:, :, t_idx, :].contiguous(),
+                          v[:, :, t_idx, :].contiguous())
             self.positions[l] = self.positions[l][idx]
             self.scores[l] = self.scores[l][idx]
             total_retained += idx.shape[0]
