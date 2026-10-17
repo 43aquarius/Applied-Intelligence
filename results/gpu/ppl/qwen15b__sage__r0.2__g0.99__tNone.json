@@ -1,0 +1,16 @@
+{
+  "model": "qwen15b",
+  "policy": "sage",
+  "rho": 0.2,
+  "gamma": 0.99,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 10,
+  "n_tokens": 20470,
+  "avg_nll": 2.3467276561391572,
+  "ppl": 10.451313414792889,
+  "wall_s": 32.06633795000005,
+  "tok_s": 638.3641322535232,
+  "budget_violations": 0
+}

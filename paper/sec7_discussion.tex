@@ -32,12 +32,15 @@ generation) more useful than a leaderboard in which every score-based
 method scores zero at mid depths.
 
 \paragraph{Limitations.}
-The study is CPU-scale by construction: models to $0.5$B parameters,
+The core study is CPU-scale by construction (models to $0.5$B parameters,
 contexts to $4{,}096$ tokens, single-sequence execution at
-$\sim$61 tokens/s prefill on the larger model. We do not measure
-throughput under batching, kernel fusion, or paged allocators, and our
-overheads are wall-clock on a 2-core CPU rather than profiled GPU
-kernels; the systems interactions that dominate at production scale
+$\sim$61 tokens/s prefill on the larger model), and the GPU replication
+(Section~\ref{sec:exp-gpu}) extends the quality, retrieval, and
+sensitivity grids to Qwen2.5-1.5B/3B on T4 hardware but not beyond:
+7B-class models, 32K+ contexts, and throughput under
+batching, kernel fusion, or paged allocators remain unmeasured, and our
+GPU overheads are wall-clock in eager mode rather than profiled kernels;
+the systems interactions that dominate at production scale
 \cite{kwon2023paged,mao2026infra} are outside what this hardware can
 measure. Perplexity uses $10$--$32$ evaluation windows (dictated by
 compute), which suffices for the effect sizes reported but is smaller
@@ -54,9 +57,9 @@ this paper descends from them.
 \paragraph{Reproducibility.}
 The artifact contains the engine, all policies, the projector with its
 assertion harness, every result JSON and accounting log behind every
-table and figure, the scripts that regenerate them, and a GPU replication
-protocol that reuses the identical code paths on larger models and
-contexts. A single command re-derives each table from the logs; a single
+table and figure---CPU and GPU alike---the scripts that regenerate them,
+and the GPU driver that reproduced the 1.5B/3B grids unmodified on a
+single T4. A single command re-derives each table from the logs; a single
 flag re-runs any configuration with a different seed. We believe this is
 the appropriate response to the review context that motivated this work:
 claims about memory contracts should be checkable at the level of

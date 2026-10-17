@@ -45,13 +45,14 @@ manuscript lacked: comparisons there mixed nominal budgets with different
 actual occupancies across methods.
 
 \paragraph{Scope, stated plainly.}
-The study runs on a 2-core CPU: models to $0.5$B parameters, contexts to
-4{,}096 tokens, $\sim$61 tokens/s prefill on the Qwen model. We do not
-measure GPU throughput, batching effects, or multi-GB-scale behaviour,
-and we make no claims about them; the artifact includes a GPU replication
-protocol (identical code paths, larger models and contexts) for groups
-with the hardware. What the scale does support---and what this section
-reports---is correctness of the memory contract under deployment
+The core study runs on a 2-core CPU: models to $0.5$B parameters, contexts
+to 4{,}096 tokens, $\sim$61 tokens/s prefill on the Qwen model. We do not
+measure batching effects or multi-GB-scale throughput, and we make no
+such claims. A GPU replication (Section~\ref{sec:exp-gpu}) re-runs the
+quality, retrieval, and sensitivity grids on Qwen2.5-1.5B/3B-Instruct on
+T4 hardware with the identical engine, protocol, and assertions. What the
+combined evidence supports---and what this section reports---is
+correctness of the memory contract under deployment
 conditions, quality--memory trade-offs, mechanism attributions via
 matched-entry ablations, and failure-mode diagnostics that do not depend
 on scale.
@@ -89,9 +90,11 @@ of $+4.2\%$ and a maximum of $+10.6\%$ (Figure~\ref{fig:budget}); the
 overshoot is the Jensen gap of Section~\ref{sec:intro} and it persists
 under the formula's own lower clip. The corrected projection incurs zero
 violations---in simulation, across $19{,}980$ randomised stress
-instances, and deployed in every run of this paper
+instances, and deployed in every CPU run of this paper
 ($3{,}840$ compression steps across all reported configurations, each
-carrying a live assertion). The overhead of correctness is modest:
+carrying a live assertion), as well as in every GPU replication run
+(Section~\ref{sec:exp-gpu}: 34 runs, $695{,}980$ tokens, zero
+violations). The overhead of correctness is modest:
 scoring plus projection plus eviction together add $2.5$--$9.6$\,ms per
 64-token chunk on the two-core CPU, against $200$--$500$\,ms of forward
 time per chunk.
@@ -346,3 +349,141 @@ FlashAttention-based deployments must re-compute or approximate
 \cite{mao2026infra}; our eager-kernel accounting is the honest upper
 bound of what the method costs when scores are materialised, and the
 projection itself is architecture-independent integer arithmetic.
+
+\subsection{RQ7: Does the picture hold at 1.5B/3B on GPU?}
+\label{sec:exp-gpu}
+
+To test whether the CPU-scale findings are artefacts of small models, we
+replicated the quality, retrieval, and sensitivity grids on
+Qwen2.5-1.5B-Instruct (28 layers, GQA) and Qwen2.5-3B-Instruct (36
+layers, GQA) on a Tesla T4 (16\,GB, fp32, PyTorch 2.11, single device,
+no code changes: the engine, projector, policies, matched-entry
+protocol, and live assertions are byte-identical to the CPU study, and
+the run is checkpointed in the released artifact). Perplexity uses the
+same 10 non-overlapping 2{,}048-token WikiText-2 windows; the needle
+suite is the identical protocol at the same lengths, depths, and trial
+counts.
+
+\begin{table}[t]
+\centering\small
+\caption{GPU replication: WikiText-2 perplexity at $\rho=0.2$ (10
+$\times$ 2{,}048 tokens, fp32, matched entries; zero budget violations
+in all 34 runs). The CPU-study ordering (Table~\ref{tab:main})
+transfers: SAGE variants take the top two places among eviction methods
+on both models, and the static pyramid remains the worst eviction method
+on the GQA family.}
+\label{tab:gpu}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}} l cc}
+\toprule
+Method & Qwen2.5-1.5B & Qwen2.5-3B \\
+\midrule
+Full cache (reference) & 8.80 & 7.77 \\
+StreamingLLM (sinks + window) & 11.31 & 10.11 \\
+H2O (cumulative, uniform budget) & 10.50 & 9.36 \\
+PyramidKV (cumulative, static pyramid) & 11.36 & 10.55 \\
+Reverse pyramid (control) & 10.58 & 9.36 \\
+SAGE v2 (decay + entropy budget) & 10.42 & 9.28 \\
+SAGE v2 w/o decay ($\gamma{=}1$) & 10.65 & 9.48 \\
+SAGE v2 w/ uniform budget ($\tau{=}0$) & \textbf{10.30} & \textbf{9.19} \\
+\bottomrule
+\end{tabular*}
+\end{table}
+
+Table~\ref{tab:gpu} shows the perplexity grid. Three observations carry
+over from the $0.5$B CPU study. First, the SAGE variants again take the
+top two places among eviction methods on both models (10.30/10.42 on
+1.5B; 9.19/9.28 on 3B), with the uniform-budget variant ahead of the
+entropy-weighted default---the same GQA-family ordering observed at
+$0.5$B (16.40 vs.\ 17.02), now at $3$--$6\times$ the parameter count.
+Second, the static pyramid is again the worst eviction method on GQA
+(11.36 and 10.55, below even StreamingLLM's window-only policy),
+confirming at scale that the bottom-heavy prior tuned on MHA models does
+not transfer. Third, the reverse-pyramid control sits close to H2O on
+the GQA family (10.58/9.36)---unlike its catastrophic GPT-2 result
+(69.03)---so allocation \emph{direction} matters far less on GQA than
+the difference between adaptive and static weighting itself; we report
+this asymmetry honestly rather than extrapolate the GPT-2 drama. The
+budget sweep on 1.5B (Figure~\ref{fig:gpucurve}) shows the same
+crossover pattern as the CPU curves: at $\rho=0.3$ \sage{} reaches
+9.94 vs.\ 10.04 (H2O) and 10.77 (PyramidKV), while at the extreme
+$\rho=0.05$ H2O edges ahead (12.71 vs.\ 12.98)---identical to the
+CPU-study's qualitative shape. Sensitivity replicates too: on 1.5B the
+Qwen-family preference for gentle decay and small $\tau$ persists
+($\gamma=0.99$: 10.45 vs.\ $\gamma=1$: 10.65; $\tau=0.5$: 10.34,
+$\tau=1$: 10.38, $\tau=2$: 10.50), matching the architecture-dependent
+inversion found at $0.5$B.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.78\columnwidth]{fig_gpu_curve.pdf}
+\caption{GPU replication (Qwen2.5-1.5B-Instruct): WikiText-2 perplexity
+vs.\ budget ratio $\rho$ under the matched-entry protocol. The
+CPU-study crossover pattern reproduces: \sage{} dominates at moderate
+budgets; H2O edges ahead at the extreme $\rho=0.05$; the static pyramid
+trails at every budget.}
+\label{fig:gpucurve}
+\end{figure}
+
+\begin{table}[t]
+\centering\small
+\caption{GPU replication: needle retrieval at $\rho=0.2$, context
+2{,}048 (mean over 2 trials per depth; exact match of a 7-digit code).
+Retention is the mean fraction of needle tokens still cached across
+layers at the end of prefill. Multi-needle: three codes at depths
+$15/50/85\%$, partial credit per code.}
+\label{tab:gpuneedle}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}} ll ccccc c c}
+\toprule
+& & \multicolumn{5}{c}{Accuracy by depth (\%)} & & \\
+\cmidrule(lr){3-7}
+Model & Method & 0 & 25 & 50 & 75 & 100 & Retention & Multi \\
+\midrule
+1.5B & Full cache & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.000 & 1.00 \\
+1.5B & StreamingLLM & 0.00 & 0.00 & 0.00 & 0.00 & 1.00 & 0.200 & -- \\
+1.5B & H2O & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 0.022 & 0.33 \\
+1.5B & PyramidKV & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 0.028 & 0.00 \\
+1.5B & SAGE v2 & 0.00 & 0.00 & 0.00 & 0.00 & 1.00 & 0.141 & 0.33 \\
+\midrule
+3B & Full cache & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 & 1.000 & 1.00 \\
+3B & StreamingLLM & 0.00 & 0.00 & 0.00 & 0.00 & 1.00 & 0.200 & -- \\
+3B & H2O & 0.00 & 0.00 & 0.00 & 0.00 & 0.50 & 0.027 & 0.00 \\
+3B & PyramidKV & 0.00 & 0.00 & 0.00 & 0.00 & 0.50 & 0.047 & 0.00 \\
+3B & SAGE v2 & 0.00 & 0.00 & 0.00 & 0.00 & 1.00 & 0.149 & 0.33 \\
+\bottomrule
+\end{tabular*}
+\end{table}
+
+The needle replication (Table~\ref{tab:gpuneedle}) reproduces the CPU
+study's diagnostic structure on both models: every history-score method
+loses mid-context needles at $\rho=0.2$; only the recent-window
+structure survives (depth-100 hits for StreamingLLM and \sage{}); and
+\sage's decayed scoring retains 5--6$\times$ more needle tokens than
+H2O's cumulative scoring at equal budgets (0.141/0.149 vs.\
+0.022/0.027)---the cache-level signature of the staleness separation of
+Proposition~\ref{prop:staleness}, now measured on models six times the
+CPU study's size. The multi-instruction probe replicates the decay
+trade-off at 1.5B (\sage{} 0.33 vs.\ no-decay 0.00) while at 3B the
+no-decay variant recovers (0.67 vs.\ 0.33); we read this as the
+quality--retrieval balance shifting with model capacity, not as a
+contradiction, and the honest conclusion is that the decay rate is a
+tunable operating point rather than a universally dominant setting.
+
+Two deployment facts complete the picture. First, compliance: all 34
+GPU runs ($695{,}980$ evaluated tokens, every compression step
+asserted) report zero budget violations---Theorem~\ref{thm:exact}'s
+conclusion holds in GPU deployment exactly as in simulation and on CPU.
+During greedy decode the cache can benignly under-fill the envelope
+(tokens arrive one at a time while the envelope grows by $\rho L$ per
+step); since the contract is an upper bound and the per-layer projection
+clips at each layer's actual entry count, over-filling is impossible by
+construction ($\sum_l \min(b_l, n_l) \le B_{\mathrm{eff}}$), and the
+logged decode-time under-fills are memory savings, not violations.
+Second, cost: on T4 the scoring/observation stage dominates the
+per-chunk overhead ($51$\,ms at 1.5B, $108$\,ms at 3B, vs.\ $37$--$64$\,ms
+forward per 64-token chunk), because eager score materialisation forces
+a device-to-host transfer per layer; the projection itself remains
+$<6$\,ms. This is an engineering statement about score extraction in
+eager mode, not about the allocator, and it directly motivates the
+fused or re-computed score paths that production kernels would use
+\cite{mao2026infra}. The full grid---both models, all policies, needle
+suite, sensitivity---completes in $35$ minutes on one T4.

@@ -89,13 +89,17 @@ every baseline (StreamingLLM, H2O, PyramidKV, and controls) is routed
 through the same exact-budget projector on two architectures (GPT-2 with
 multi-head attention; Qwen2.5-0.5B with grouped-query attention), replacing
 the synthetic records of our earlier manuscript with fully traceable
-measurements. Experiments on WikiText-2 perplexity and needle retrieval
-with $3{,}840$ logged budget checks show zero contract violations, a
-consistent advantage of dispersion-adaptive over static-pyramid allocation,
-an existential role for sink protection (removing it multiplies perplexity
-by $84\times$), and a measurable quality--retrieval trade-off controlled by
-the decay rate. All claims are calibrated to the CPU-scale of the study,
-and the released artifact includes a GPU replication protocol.
+measurements, and replicate the quality, retrieval, and sensitivity grids
+on Qwen2.5-1.5B/3B-Instruct on GPU with the identical engine and protocol.
+Experiments on WikiText-2 perplexity and needle retrieval with $3{,}840$
+logged CPU budget checks plus a further $695{,}980$ GPU evaluation tokens
+show zero contract violations, a
+consistent advantage of dispersion-adaptive over static-pyramid allocation
+that persists from $0.5$B to $3$B parameters, an existential role for sink
+protection (removing it multiplies perplexity by $84\times$), and a
+measurable quality--retrieval trade-off controlled by
+the decay rate. All claims are calibrated to the scale actually measured,
+and the released artifact regenerates every number from raw logs.
 \end{abstract}
 
 \noindent\textbf{Keywords:} KV cache compression; long-context inference;

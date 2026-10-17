@@ -1,0 +1,16 @@
+{
+  "model": "qwen3b",
+  "policy": "streamingllm",
+  "rho": 0.2,
+  "gamma": null,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 10,
+  "n_tokens": 20470,
+  "avg_nll": 2.3130575922260315,
+  "ppl": 10.105275277797823,
+  "wall_s": 58.11647708999999,
+  "tok_s": 352.2236898203563,
+  "budget_violations": 0
+}

@@ -1,0 +1,16 @@
+{
+  "model": "qwen3b",
+  "policy": "pyramidkv",
+  "rho": 0.2,
+  "gamma": null,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 10,
+  "n_tokens": 20470,
+  "avg_nll": 2.3559735186368367,
+  "ppl": 10.548392921856014,
+  "wall_s": 58.923050832999934,
+  "tok_s": 347.4022425963007,
+  "budget_violations": 0
+}

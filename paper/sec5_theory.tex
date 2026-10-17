@@ -64,7 +64,8 @@ Theorem~\ref{thm:exact} is not a statement about a limit or an
 approximation: the projector is invoked at every compression step of every
 run in Section~\ref{sec:exp}, and each invocation is followed by an
 assertion of the conclusion. Across $3{,}840$ logged compression steps
-(all configurations reported in this paper) the assertion never fired,
+in the CPU study and a further $34$ GPU runs ($695{,}980$ tokens;
+Section~\ref{sec:exp-gpu}) the assertion never fired,
 and the deployed violation count in Table~\ref{tab:compliance} is zero
 for every method---while the uncorrected exponent formula of our earlier
 manuscript violates the contract in $97.4\%$ of simulated steps

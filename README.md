@@ -31,9 +31,13 @@ submission. The v1 state — whose experiment tables were self-consistent
    control, SAGE ablations) run through the *same* exact-budget projector and
    cache manager at identical retained-entry counts (matched-entry protocol),
    with auxiliary memory reported separately.
-4. **Scope honesty** — experiments are CPU-scale (2 cores, fp32): GPT-2-124M
+4. **Scope honesty** — the core study is CPU-scale (2 cores, fp32): GPT-2-124M
    (MHA) and Qwen2.5-0.5B-Instruct (GQA), native context lengths, no
-   FlashAttention score claims. No GPU throughput numbers are claimed.
+   FlashAttention score claims. A **GPU replication** (`gpu/driver.py`,
+   Section below) re-runs the quality, retrieval, and sensitivity grids on
+   Qwen2.5-1.5B/3B-Instruct on a T4 with byte-identical engine and
+   protocol: 34 PPL runs / 695,980 tokens and 130 needle runs, again with
+   zero budget violations. No batching/throughput claims are made.
 
 ## Repository layout
 
@@ -48,17 +52,23 @@ evals/
   run_needle.py        needle + multi-needle retrieval with retention diagnostics
   run_budget_sim.py    Theorem-1 verification + original-formula overshoot
   run_trace.py         per-layer budget/entropy allocation traces
+gpu/
+  driver.py            Kaggle T4 GPU replication driver (1.5B/3B grids)
 tests/
   test_allocation.py   20,000 randomized exactness checks (all pass)
 scripts/
   probe_engine.py      engine correctness gates (chunked == full, compliance)
   make_figures.py      regenerates all 6 figures from results/
   gen_tables.py        regenerates all 4 LaTeX table bodies from results/
+  integrate_gpu_results.py  GPU tables/figure/summary from results/gpu/
   check_divergence.py  chunked-vs-full divergence debugging aid
   debug_chunk.py       single-chunk engine diagnostics
   diag_needle.py       needle retention diagnostics
   setup/               restricted-network environment bootstrap (see below)
-results/              raw JSON: ppl/, needle/, budget_sim.json, alloc_trace.json
+results/
+  ppl/ needle/         CPU study raw JSON logs + accounting
+  budget_sim.json alloc_trace.json
+  gpu/                 GPU replication raw JSON logs (T4, 1.5B/3B)
 figures/              generated vector figures + LaTeX table bodies
 paper/                LaTeX source of the paper (compile with Tectonic;
                       compiled PDF lives in the GitHub Release)
@@ -109,13 +119,36 @@ compression steps, zero violations.**
 | GPT-2 PPL @ rho=0.2 (full = 32.41) | sage-nodecay **47.58** < h2o 49.63 < pyramidkv 50.77 < streamingllm 59.92 |
 | Qwen2.5-0.5B PPL @ rho=0.2 (full = 13.37) | sage-uniform **16.40** < h2o 16.78 < pyramidkv 18.27 |
 | Removing attention sinks (GPT-2) | PPL 4079 (84x degradation — sinks are existential) |
-| Needle retention, mid-depth (Qwen) | SAGE 0.123 vs H2O 0.025 (~5x) |
-| Multi-needle retrieval (Qwen, 4096) | SAGE 33% vs no-decay 0% |
+| Needle retention, mid-depth (Qwen 0.5B) | SAGE 0.123 vs H2O 0.025 (~5x) |
+| Multi-needle retrieval (Qwen 0.5B, 4096) | SAGE 33% vs no-decay 0% |
+| **GPU replication (T4)** | 34 PPL runs / 695,980 tokens + 130 needle runs on Qwen2.5-1.5B/3B — **0 violations** |
+| GPU PPL @ rho=0.2, 1.5B (full = 8.80) | **sage-uniform 10.30** < sage 10.42 < h2o 10.50 < pyramidkv 11.36 |
+| GPU PPL @ rho=0.2, 3B (full = 7.77) | **sage-uniform 9.19** < sage 9.28 < h2o 9.36 < pyramidkv 10.55 |
+| GPU needle retention (1.5B / 3B) | SAGE 0.141 / 0.149 vs H2O 0.022 / 0.027 |
 
-## GPU replication protocol
+## GPU replication (executed on Kaggle T4)
 
-The engine is hardware-agnostic PyTorch; to scale the study on A100/H100
-(or free-tier T4/P100) hardware:
+`gpu/driver.py` re-runs the CPU protocol on Qwen2.5-1.5B-Instruct and
+Qwen2.5-3B-Instruct with **zero code changes** to the engine, policies, or
+protocol (it clones this repository and imports `sage/` directly). The
+completed run (checkpointed under `results/gpu/`, ~35 min on one T4)
+comprises: per-model correctness gates, the 8-policy PPL main grid, the
+budget-rho curve and gamma/tau sensitivity (1.5B), and the full needle +
+multi-needle suite — all with live budget assertions and identical JSON
+schemas. Findings replicate the CPU study: SAGE variants top-2 on both
+models, static PyramidKV worst on the GQA family, decay-retrieval
+trade-off intact (multi-needle 1.5B: 33% vs 0% no-decay).
+
+To re-run on any CUDA machine (or a Kaggle/GColab notebook):
+
+```bash
+python gpu/driver.py          # full grid; set SAGE_DRIVER_TEST=1 for a tiny CPU smoke test
+```
+
+## Scaling further (A100/H100 protocol)
+
+The engine is hardware-agnostic PyTorch; to scale the study on larger
+hardware:
 
 1. Replace model paths with LLaMA-3.1-8B-Instruct / Qwen2.5-7B-Instruct (GQA)
    and Mistral-7B (sliding-window aware); keep

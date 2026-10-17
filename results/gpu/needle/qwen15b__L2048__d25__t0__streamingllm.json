@@ -1,0 +1,50 @@
+{
+  "hits": [
+    0
+  ],
+  "hit_rate": 0.0,
+  "gen": "harbor",
+  "retention_mean": 0.0,
+  "retention_per_layer": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "wall_s": 3.170775575999869,
+  "prompt_len": 2059,
+  "violations": 0,
+  "model": "qwen15b",
+  "length": 2048,
+  "depth": 25,
+  "trial": 0,
+  "method": "streamingllm",
+  "multi": false,
+  "codes": [
+    "4396146"
+  ]
+}
