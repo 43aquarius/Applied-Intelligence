@@ -1,0 +1,8 @@
+Full cache (reference) & 32.41 & 13.37 & 0.10 / 0.39 \\
+StreamingLLM (sinks + window) & 59.92 & 17.65 & 0.02 / 0.08 \\
+H2O (cumulative, uniform budget) & 49.63 & 16.78 & 0.01 / 0.08 \\
+PyramidKV (cumulative, static pyramid) & 50.77 & 18.27 & 0.03 / 0.08 \\
+Reverse pyramid (control) & 69.03 & 16.71 & 0.02 / 0.08 \\
+SAGE v2 (decay + entropy budget) & 49.80 & 17.02 & 0.02 / 0.08 \\
+SAGE v2 w/o decay ($\gamma{=}1$) & 47.58 & 17.43 & 0.02 / 0.08 \\
+SAGE v2 w/ uniform budget ($\tau{=}0$) & 54.00 & 16.40 & 0.02 / 0.08 \\

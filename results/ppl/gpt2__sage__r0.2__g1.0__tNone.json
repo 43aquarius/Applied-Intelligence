@@ -1,0 +1,16 @@
+{
+  "model": "gpt2",
+  "policy": "sage",
+  "rho": 0.2,
+  "gamma": 1.0,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 16,
+  "n_tokens": 16368,
+  "avg_nll": 3.8478726992677017,
+  "ppl": 46.89320110979594,
+  "wall_s": 37.513294276001034,
+  "tok_s": 436.32531655507944,
+  "budget_violations": 0
+}

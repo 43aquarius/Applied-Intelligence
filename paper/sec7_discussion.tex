@@ -1,0 +1,63 @@
+\section{Discussion and limitations}\label{sec:disc}
+
+\paragraph{What the evidence supports.}
+Four claims survive the matched-entry protocol. First, budget
+consistency is achievable at negligible cost: the capped water-filling
+projection held the contract exactly across every deployed step of every
+configuration, while the exponent-style formula it replaces violated the
+same contract in $97.4\%$ of simulated steps. Second, allocation
+direction matters and static priors do not transfer: the pyramid prior
+helped neither of our architectures relative to uniform budgets, and its
+mirror image destroyed GPT-2 ($+39\%$ perplexity) while leaving Qwen
+almost untouched. Third, structural protection of sinks and recency is
+non-negotiable---the $84\times$ collapse without sink protection dwarfs
+every allocation or scoring choice. Fourth, the decay rate is a real
+dial, not a free lunch: it trades perplexity (best at $\gamma=1$) against
+late-context retention and multi-instruction robustness (best at
+$\gamma<1$), and Proposition~\ref{prop:staleness} explains the mechanism.
+
+\paragraph{What it does not support.}
+We report two negative results with the same prominence as the positive
+ones. Dispersion-adaptive allocation did not beat uniform allocation on
+the GQA model at this scale (16.40 uniform versus 17.02 adaptive at
+$\rho=0.2$, although adaptive still dominates the static pyramid by 1.25
+points); and default-rate decay cost 1--2 perplexity points on both
+models. Both results bound the strength of our claims deliberately: the
+case for \laba{} is that it never loses to the static prior on either
+architecture and wins clearly on one, not that it dominates everywhere.
+Likewise, the needle results are a measured \emph{failure} of the entire
+history-only family at $20\%$ budget, ours included; we consider the
+retention diagnostic that localises the failure (cache content, not
+generation) more useful than a leaderboard in which every score-based
+method scores zero at mid depths.
+
+\paragraph{Limitations.}
+The study is CPU-scale by construction: models to $0.5$B parameters,
+contexts to $4{,}096$ tokens, single-sequence execution at
+$\sim$61 tokens/s prefill on the larger model. We do not measure
+throughput under batching, kernel fusion, or paged allocators, and our
+overheads are wall-clock on a 2-core CPU rather than profiled GPU
+kernels; the systems interactions that dominate at production scale
+\cite{kwon2023paged,mao2026infra} are outside what this hardware can
+measure. Perplexity uses $10$--$32$ evaluation windows (dictated by
+compute), which suffices for the effect sizes reported but is smaller
+than the full-test-set convention; the needle grid uses two trials per
+depth at 2{,}048 and one at 4{,}096 tokens. Our baseline set covers the
+eviction family and its layer-allocation axis; we do not compare against
+query-aware methods (SnapKV, Quest, DuoAttention) or quantisation (KIVI)
+because they change the deployment model rather than the eviction policy,
+and the matched-entry protocol we advocate is exactly the instrument
+under which such comparisons should be run once hardware permits. The
+earlier manuscript's synthetic records are fully superseded: no number in
+this paper descends from them.
+
+\paragraph{Reproducibility.}
+The artifact contains the engine, all policies, the projector with its
+assertion harness, every result JSON and accounting log behind every
+table and figure, the scripts that regenerate them, and a GPU replication
+protocol that reuses the identical code paths on larger models and
+contexts. A single command re-derives each table from the logs; a single
+flag re-runs any configuration with a different seed. We believe this is
+the appropriate response to the review context that motivated this work:
+claims about memory contracts should be checkable at the level of
+individual compression steps, not only through downstream benchmarks.

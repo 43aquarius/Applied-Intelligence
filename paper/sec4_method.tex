@@ -1,0 +1,142 @@
+\section{Method: \sage{}}\label{sec:method}
+
+\sage{} composes three mechanisms---\acs{} scoring, \laba{} allocation,
+\dre{} protection---on top of a single exact-budget primitive. This
+section defines each mechanism and the algorithm that ties them together;
+Section~\ref{sec:theory} carries the guarantees.
+
+\subsection{\acs: decayed cumulative scoring}
+
+For layer $l$, let $\bar a_{t,l}\in\mathbb{R}^{\ge 0\,t}$ be the
+attention distribution of the step-$t$ query averaged over query heads
+(for grouped-query attention, every query head contributes to the average
+of the KV entries it reads). \acs{} maintains an exponentially decayed
+cumulative score, updated at every step for every retained entry $i$:
+\begin{equation}\label{eq:acs}
+S_l[i] \;\leftarrow\; \gamma\,S_l[i] \;+\; \bar a_{t,l}[i],
+\qquad \gamma\in(0,1],
+\end{equation}
+with new entries initialised by their received mass. $\gamma=1$ recovers
+the cumulative scores of H2O~\cite{zhang2023h2o} and PyramidKV's
+decode-time behaviour~\cite{cai2024pyramidkv}; $\gamma<1$ discounts stale
+mass. Scores exist only for retained entries---we do not keep shadow
+scores for evicted positions---so auxiliary memory stays at four bytes
+per retained entry. Chunked processing (Section~\ref{sec:exp-setup})
+applies the closed form
+$S \leftarrow \gamma^{q} S + (\gamma^{\,q-1},\dots,1)\, A$ for a chunk of
+$q$ queries with attention block $A$, which is algebraically identical to
+$q$ single-step updates.
+
+\subsection{\laba: dispersion-weighted exact allocation}
+
+\laba{} turns a per-layer \emph{dispersion signal} into layer budgets
+through the projection of Theorem~\ref{thm:exact}. The signal is the
+normalised entropy of the recent head-averaged attention distribution,
+exponentially smoothed across chunks:
+\begin{align}
+\kappa_l &\;\leftarrow\; \beta\,\kappa_l \;+\; (1-\beta)\,
+\frac{H\!\bigl(\bar p_l\bigr)}{\log \lvert\mathcal{C}_l\rvert},
+\qquad \beta = 0.9,
+\end{align}
+where $\bar p_l$ is the head-averaged attention mass of the last (up to)
+16 queries of the current chunk and $H(\cdot)$ is Shannon entropy, so
+$\kappa_l\in[0,1]$ measures how spread the layer's attention is. The
+layer weights are
+\begin{equation}\label{eq:weights}
+w_l \;\propto\; (\kappa_l + \varepsilon)^{\tau}, \qquad \tau\ge 0,
+\end{equation}
+normalised to sum to one, with defaults $\tau=1.5$ (the value used by our
+earlier manuscript, retained deliberately so that the correction is
+isolated from hyperparameter drift) and $\varepsilon=10^{-6}$. The
+critical difference from the earlier formula is where normalisation
+happens: the weights $w_l$ sum to one \emph{before} any budget is formed,
+and the projection below allocates \emph{from} them, so no Jensen gap can
+arise at any $\tau$. Given the weights, per-layer floors
+$\ell_l=\min(p,t)$ (protection) and caps $u_l=t$, and the step budget
+$B_{\mathrm{eff}}(t)$ of Eq.~\eqref{eq:contract}, the budget vector is
+the unique capped water-filling allocation
+\begin{equation}\label{eq:waterfill}
+b_l \;=\; \operatorname{clip}\!\bigl(w_l\,\mu^{*},\ \ell_l,\ u_l\bigr),
+\qquad \sum_l b_l = B_{\mathrm{eff}}(t),
+\end{equation}
+with the water level $\mu^{*}$ found by bisection
+(Algorithm~\ref{alg:sage}). Setting $\tau=0$ recovers uniform allocation;
+replacing Eq.~\eqref{eq:weights} with a static profile recovers
+PyramidKV-style allocation---through the same projector, which is how the
+matched-entry comparison instantiates its baselines.
+
+\subsection{\dre: dual-region protection}
+
+\dre{} never evicts two regions: the first $s=4$ positions (attention
+sinks \cite{xiao2024streamingllm}) and the last $r=32$ positions
+(recency). Protection is enforced structurally: the floors
+$\ell_l=\min(s+r,t)$ in the projection guarantee that every layer can
+always hold its protected region, and eviction only ranks the
+\emph{middle} history by \acs{} scores, retaining the top-scoring
+$b_l - (\text{protected})$ entries. When $b_l$ meets the floor exactly,
+the layer keeps protection only. Structural protection has two
+consequences we exploit in the evaluation: it makes the warmup allowance
+of Eq.~\eqref{eq:contract} well-defined, and it removes the pathological
+interactions that arise when a scoring policy is one tie away from
+evicting a sink.
+
+\begin{algorithm}[t]
+\SetAlFnt{\small}
+\SetAlCapFnt{\small}
+\SetAlCapNameFnt{\small}
+\KwIn{weights $w$ (sum 1), floors $\ell$, caps $u$, budget
+$B=\max(\rho L t,\,L\min(p,t))$, scores $S_l$, positions, cache}
+\KwOut{updated cache with $\sum_l|\mathcal{C}_l|=B$ exactly}
+\uIf{$B=\sum_l \ell_l$}{return $b\leftarrow\ell$\;}
+\uElseIf{$B=\sum_l u_l$}{return $b\leftarrow u$\;}
+Set $\mu_{\mathrm{lo}}\leftarrow0$,
+$\mu_{\mathrm{hi}}\leftarrow\max_l u_l/w_l$\;
+\While{$\mu_{\mathrm{hi}}-\mu_{\mathrm{lo}}>\varepsilon_\mu$}{
+  $\mu\leftarrow(\mu_{\mathrm{lo}}+\mu_{\mathrm{hi}})/2$\;
+  \If{$\sum_l \operatorname{clip}(w_l\mu,\ell_l,u_l) < B$}{
+    $\mu_{\mathrm{lo}}\leftarrow\mu$ \; }{
+    $\mu_{\mathrm{hi}}\leftarrow\mu$ \; }
+}
+$b\leftarrow$ integerise $\operatorname{clip}(w_l\mu_{\mathrm{hi}},\ell_l,u_l)$
+by largest-remainder rounding inside the box; repair residuals $\pm1$
+within slack\;
+\For{layer $l=1,\dots,L$}{
+  keep sinks $\cup$ recency $\cup$ top-$(b_l-{}$protected$)$ \acs{} scores
+  among the middle region; index-select cache, positions, scores\;
+}
+\tcp{assert: $\sum_l|\mathcal{C}_l|=B$ and $\ell_l\le|\mathcal{C}_l|\le u_l$}
+\caption{One compression step of \sage{} (\acs{}+$\laba$+\dre). The
+bisection is the capped water-filling projection of
+Theorem~\ref{thm:exact}; baselines replace the weights or the ranking
+while keeping steps 1--7 identical. The assertion is executed in code,
+not merely claimed: every run of Section~\ref{sec:exp} aborts on
+violation.}
+\label{alg:sage}
+\end{algorithm}
+
+\subsection{Complexity and implementation notes}
+
+Each compression step costs $O(L\log B)$ for the bisection (each of the
+$O(\log B)$ iterations evaluates the sum in $O(L)$), plus $O(\sum_l
+|\mathcal{C}_l|\log|\mathcal{C}_l|)$ for per-layer top-$k$ selection when
+selection is actually required. Measured on the 2-core CPU of
+Section~\ref{sec:exp-setup}, scoring and compression together add
+$4.4$--$9.6$\,ms per 64-token chunk on Qwen2.5-0.5B
+(Table~\ref{tab:compliance}), against $200$--$500$\,ms of forward time
+per chunk.
+
+Two implementation decisions are integral to the honesty of our
+evaluation. First, \emph{score provenance}: attention probabilities are
+obtained from eager attention kernels, whose cost and memory are
+explicitly accounted; we do not claim FlashAttention-compatible
+zero-cost score extraction, which recent systems analyses identify as a
+key deployment obstacle~\cite{mao2026infra,dao2023flashattention2}. At
+GPU scale, chunked re-computation of scores over retained entries is the
+drop-in replacement, and its cost is the same quantity our logs report.
+Second, \emph{per-layer masking}: because budgets differ across layers,
+cache lengths differ across layers after compression; we register a
+custom attention kernel path that builds each layer's causal mask from
+that layer's true key length, so retained entries in every layer are
+attended exactly and evicted entries simply do not exist. This removes
+the common workaround of padding all layers to a shared length, which
+would itself violate the entry contract.

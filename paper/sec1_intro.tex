@@ -1,0 +1,118 @@
+\section{Introduction}\label{sec:intro}
+
+Autoregressive transformers cache the key and value projections of every
+past token at every layer. This key--value (KV) cache makes decoding
+linear rather than quadratic in context length, but it also grows without
+bound: in half precision, a 32-layer 7B-class model spends roughly
+$0.5$\,GB of accelerator memory per $1{,}000$ tokens, and the cache is
+invariably the first resource to exhaust in long-context
+serving~\cite{pope2023efficiently,kwon2023paged}. Because attention is
+strongly sparse in practice, a long line of work evicts entries that are
+unlikely to be attended again, retaining only a small fraction of the
+cache under a \emph{memory contract}: if $\rho$ is the retention ratio,
+the policy must keep at most $\rho L t$ entries in total across $L$ layers
+at decoding step $t$~\cite{zhang2023h2o,liu2023scissorhands,%
+xiao2024streamingllm,oren2024tova}.
+
+Two design axes dominate the literature. \emph{Scoring} decides which
+individual entries matter: cumulative attention mass
+\cite{zhang2023h2o}, persistence of importance \cite{liu2023scissorhands},
+pure recency \cite{xiao2024streamingllm}, or query-aware estimates
+\cite{tang2024quest,li2024snapkv}. \emph{Allocation} decides how the
+global budget is split across layers: uniform by default,
+statically pyramidal in PyramidKV \cite{cai2024pyramidkv}, or dynamically
+adapted to per-layer attention behaviour in CAKE \cite{qin2025cake} and
+LAVa \cite{shen2025lava}. The allocation axis is attractive because
+attention dispersion differs sharply across depth, and several studies
+report sizeable quality gains from non-uniform budgets at equal total
+memory.
+
+\paragraph{The budget-consistency gap.}
+This paper starts from an uncomfortable observation about the allocation
+axis: \emph{none of the proposed layer-budget rules provably satisfies the
+global memory contract that motivates them}. Static profiles are fixed
+shapes that ignore both the contract and the runtime state; dynamic
+heuristics cascade or re-balance budgets in ways that are evaluated
+empirically but not guaranteed. The gap is not hypothetical. In an earlier
+version of this work we ourselves proposed an entropy-exponent rule of the
+form
+$b_l(t)=\operatorname{clip}\!\bigl(\rho t\,(\kappa_l/\bar\kappa)^{\tau},
+\,b_{\min}t,\,t\bigr)$,
+where $\kappa_l$ measures attention dispersion in layer $l$ and
+$\bar\kappa$ is its cross-layer mean. The rule looks innocuous: the
+ratios $\kappa_l/\bar\kappa$ average to one. But the mean of a convex
+power is not the power of the mean, and for the default $\tau=1.5$ the
+Jensen gap is systematic. In simulation over drifting dispersion signals,
+the formula \emph{as written} violates the advertised contract at
+$97.4\%$ of steps, with a mean overshoot of $+4.2\%$ and worst-case
+$+10.6\%$ (Figure~\ref{fig:budget}); at $20\%$ nominal retention this
+silently reclaims a nontrivial fraction of the savings that justify the
+method. An implementer is then forced to choose between two undocumented
+repairs---renormalising after exponentiation, or clipping and hoping---and
+the published formula describes neither. Similar exponent-style rules
+appear across the adaptive-allocation literature, usually without a
+statement of which repair, if any, is applied.
+
+\paragraph{This work.}
+We treat budget consistency as a correctness property, not an
+implementation detail, and rebuild the eviction stack around it.
+\sage{} keeps the three mechanisms of the original design---decayed
+cumulative scoring (\acs{}), layer-adaptive budgets driven by measured
+dispersion (\laba{}), and protection of sinks and recency (\dre{})---but
+replaces every heuristic allocation step with a single primitive: the
+projection of a weight-proportional ideal allocation onto the capped
+simplex $\{b\in\mathbb{Z}^L:\ \ell_l\le b_l\le u_l,\ \sum_l b_l=B\}$ by
+bisection on a water level. We prove that this \emph{capped water-filling}
+projection hits the global budget exactly at every step, respects
+per-layer floors that encode protected regions, and costs
+$O(L\log B)$ (Theorem~\ref{thm:exact}). The same primitive is used for
+\emph{every} method in our comparison, so StreamingLLM, H2O, and
+PyramidKV-style baselines all hold identical retained-entry counts at
+every step of every run---a matched-entry protocol that removes the
+nominal-versus-actual confound we criticise in prior evaluations,
+including our own earlier one.
+
+\paragraph{Contributions.}
+Our contributions are as follows.
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt,topsep=3pt]
+\item \textbf{Diagnosis.} We quantify the Jensen overshoot of
+entropy-exponent budget formulas ($97.4\%$ violating steps; $+4.2\%$ mean
+excess in simulation), and identify budget consistency as a missing
+correctness property across adaptive layer-allocation methods
+(Section~\ref{sec:prelim}).
+\item \textbf{Exact-budget allocation.} We give a capped water-filling
+projection with a full correctness proof, integer-exact budgets,
+protection floors, warmup analysis, and $O(L\log B)$ complexity
+(Theorem~\ref{thm:exact}, Section~\ref{sec:method}).
+\item \textbf{Analysis of scoring and weighting.} We prove an output
+perturbation bound proportional to evicted attention mass
+(Lemma~\ref{lem:perturb}), an explicit two-token separation showing when
+decayed scoring strictly improves on cumulative scoring
+(Proposition~\ref{prop:staleness}), and an equal-marginal argument that
+motivates dispersion-weighted budgets under a stylised power-law tail
+model (Proposition~\ref{prop:marginal}).
+\item \textbf{Matched-entry, fully traceable evaluation.} All baselines
+run through the same projector and cache manager on two attention
+architectures---GPT-2 (multi-head) and Qwen2.5-0.5B-Instruct
+(grouped-query)---with WikiText-2 perplexity, budget sweeps, needle
+retrieval with per-layer retention diagnostics, a multi-instruction
+probe, sensitivity analyses, and per-step accounting logs. Every number in
+this paper is generated by the released code from the released logs; the
+synthetic records of our earlier manuscript are discarded entirely
+(Section~\ref{sec:exp}).
+\item \textbf{Calibrated findings.} Dispersion-adaptive allocation beats
+static-pyramid allocation on both architectures and beats uniform
+allocation on GPT-2; sink protection is existential (its removal
+multiplies perplexity by $84\times$); the decay rate trades language
+modelling quality against retrieval robustness; and history-only scoring
+loses mid-context needles at $20\%$ budget---a fundamental limitation we
+measure directly through cache-level retention rather than only through
+end accuracy (Section~\ref{sec:disc}).
+\end{enumerate}
+
+We deliberately report the study at the scale it was actually run---CPU
+inference, models up to $0.5$B parameters, contexts up to $4{,}096$
+tokens---and release a GPU replication protocol rather than extrapolate.
+To our knowledge this is the first KV-eviction study whose memory-contract
+claims are backed by per-step, machine-checked accounting of every
+configuration reported.

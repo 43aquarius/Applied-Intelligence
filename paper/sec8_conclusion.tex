@@ -1,0 +1,26 @@
+\section{Conclusion}\label{sec:conclusion}
+
+Layer-adaptive KV-cache eviction is a promising axis of long-context
+inference research, but its published budget rules have been heuristic,
+and at least one representative formula---our own earlier one---violates
+the very memory contract that justifies it, at $97.4\%$ of steps and
+$+4.2\%$ mean overshoot. \sage{} rebuilds the stack around a corrected
+primitive: a capped water-filling projection that provably hits the
+global budget exactly at every step, with protection floors and
+$O(L\log B)$ cost, wrapping decayed cumulative scoring and
+dispersion-driven layer weights whose behaviour the theory explains and
+the experiments isolate. Under a matched-entry protocol that removes
+nominal-versus-actual confounds, on two attention architectures, with
+every number regenerated from released logs, the study yields calibrated
+conclusions: exact budgets are cheap; allocation should follow measured
+dispersion rather than static priors, with architecture-dependent payoff;
+sink and recency protection is structural, not optional; decay trades
+language-modelling quality against late-context retention and
+multi-instruction robustness; and history-only eviction fundamentally
+cannot preserve mid-context needles at aggressive budgets---a limitation
+that cache-level retention diagnostics measure directly and that
+query-aware methods are positioned to address. The path forward we
+consider most valuable is combining provably budget-consistent
+allocation with query-aware selection under the matched-entry protocol
+introduced here, at GPU scale, with the same per-step accounting released
+for inspection.

@@ -1,0 +1,73 @@
+\section{Preliminaries and problem formulation}\label{sec:prelim}
+
+\subsection{KV cache and honest memory accounting}
+
+Consider a decoder-only model with $L$ transformer layers, $H$ query
+heads, $n_{\mathrm{kv}}$ key--value heads (grouped-query attention
+\cite{ainslie2023gqa}; $n_{\mathrm{kv}}=H$ recovers multi-head
+attention), and head dimension $d_h$. At step $t$ the current query
+attends over all cached positions, and each layer stores one key and one
+value vector per retained position and per KV head. One \emph{cache
+entry}---the unit this paper budgets over---is the pair $(k_i, v_i)$ for
+one position in one layer, occupying
+$2\,n_{\mathrm{kv}}\,d_h\,\beta$ bytes with $\beta$-byte precision.
+For the models used here this is $6{,}144$ bytes per entry for GPT-2
+(fp32) and $1{,}024$ bytes for Qwen2.5-0.5B (fp32, $n_{\mathrm{kv}}=2$,
+$d_h=64$).
+
+Eviction policies additionally consume \emph{auxiliary} memory: importance
+scores (float per entry in our implementation), retained-position indices,
+and budget state. Prior evaluations, including our own earlier manuscript,
+often report only the nominal retention ratio while auxiliary structures
+silently add several percent of relative overhead (our earlier draft
+reported $22.6\%$ actual occupancy against a $20\%$ nominal budget without
+a breakdown). We therefore separate the two quantities throughout: the
+\emph{entry contract} below governs cache entries only, and
+Table~\ref{tab:main} reports measured auxiliary bytes per method next to
+quality.
+
+\subsection{The memory contract, with warmup}
+
+Let $\rho\in(0,1)$ be the retention ratio. An eviction policy maintains
+per-layer retained sets $\mathcal{C}_l^{t}\subseteq\{1,\dots,t\}$ and must
+satisfy the global contract
+\begin{equation}\label{eq:contract}
+\sum_{l=1}^{L}\bigl|\mathcal{C}_l^{t}\bigr| \;\le\; B_{\mathrm{eff}}(t),
+\qquad
+B_{\mathrm{eff}}(t) \;=\; \max\!\bigl(\rho L t,\; L\,p\bigr),
+\end{equation}
+where $p$ is the per-layer protection size (attention sinks plus the
+recency window) and $L p$ is a constant \emph{warmup allowance}: for
+$t < t_w = p/\rho$ the protected region itself exceeds the proportional
+budget, and the contract holds the cache at the protection level instead.
+Equivalently, the cache obeys the proportional contract $\rho L t$ exactly
+from $t_w$ onward, and never exceeds $\max(\rho L t, Lp)$ at any point;
+the warmup allowance is bounded, explicit, and identical for every method
+in our comparison. We prefer this statement to the common
+``$\sum_l|\mathcal{C}_l^t|\le\rho Lt$ for all $t$'' because the latter is
+infeasible for any policy that protects sinks and recency---a small but
+pervasive definitional sloppiness in the literature.
+
+An evicted entry cannot be recovered; the policy's goal is to minimise
+the quality gap to the full cache. We make the goal measurable through
+WikiText-2 perplexity under a deployment-realistic protocol, synthetic
+needle retrieval with cache-level retention diagnostics, and a
+multi-instruction probe (Section~\ref{sec:exp}).
+
+\subsection{Three failure modes, and what each mechanism buys}
+
+Three empirical mechanisms motivate \sage{}'s design, each stated with the
+evidence that this paper actually measures. First, layers differ in how
+dispersed their attention is, and a single retention ratio misfits them
+all; Section~\ref{sec:exp-alloc} shows the measured dispersion profiles
+of GPT-2 and Qwen2.5-0.5B and the allocation each induces. Second,
+importance scores go stale: an entry that dominated attention early keeps
+its slot after the topic moves. Proposition~\ref{prop:staleness} gives a
+minimal separation where cumulative scoring provably keeps the wrong
+token and decayed scoring provably keeps the right one, and
+Section~\ref{sec:exp-sens} measures the price of decay in perplexity
+against its benefit in retrieval. Third, local structure is fragile:
+sinks and recency are small in entry count but existential in effect---in
+our ablations, removing sink protection multiplies perplexity by
+$84\times$ (Table~\ref{tab:sens}), which is why \dre{} protects them by
+floors in the projection rather than by scores.

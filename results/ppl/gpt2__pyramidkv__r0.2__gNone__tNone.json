@@ -1,0 +1,16 @@
+{
+  "model": "gpt2",
+  "policy": "pyramidkv",
+  "rho": 0.2,
+  "gamma": null,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 32,
+  "n_tokens": 32736,
+  "avg_nll": 3.9273377166679473,
+  "ppl": 50.771629119105086,
+  "wall_s": 75.16774027099927,
+  "tok_s": 435.5059747968769,
+  "budget_violations": 0
+}

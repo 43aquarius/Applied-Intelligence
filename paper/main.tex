@@ -1,144 +1,115 @@
-% =====================================================================
-% SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
-% Long-Context Inference of Large Language Models
-%
-% Manuscript prepared for Applied Intelligence (Springer).
-% Standard article class reproducing the Springer journal layout:
-% single column, Times-like type, numeric citations, Declarations block.
-%
-% Compile: tectonic main.tex   (via pdf.py convert.latex, 2 runs)
-% =====================================================================
 \documentclass[11pt,a4paper]{article}
 
-% ----- encoding & fonts (XeTeX/Tectonic) -----------------------------
-\usepackage{fontspec}
-\usepackage{unicode-math}
-\setmainfont{Liberation Serif}          % Times-metric-compatible
-\setsansfont{Liberation Sans}
-\setmathfont{texgyretermes-math.otf}    % Times-compatible math
-
-% ----- layout ---------------------------------------------------------
-\usepackage[a4paper, top=2.6cm, bottom=2.6cm, left=2.6cm, right=2.6cm]{geometry}
-\usepackage{microtype}
-\usepackage{setspace}
-\setstretch{1.13}
-
-% ----- math & tables ---------------------------------------------------
-\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{tabularx}
-\usepackage{multirow}
-\usepackage{array}
-
-% ----- graphics --------------------------------------------------------
-\usepackage{graphicx}
-\graphicspath{{figures/}}
-
-% ----- algorithm -------------------------------------------------------
-\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
-\SetAlFnt{\small}
-\SetAlCapFnt{\small}
-\SetAlCapNameFnt{\small}
-
-% ----- misc -------------------------------------------------------------
+\usepackage{adjustbox}
 \usepackage{enumitem}
-\usepackage{needspace}
-\usepackage{xcolor}
-\usepackage{caption}
-\captionsetup{font=small, labelfont=bf, skip=6pt}
+\usepackage{microtype}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
 
-% ----- bibliography (numeric, Springer-basic style) ----------------------
-\usepackage[numbers,sort&compress]{natbib}
-\bibliographystyle{unsrtnat}
-\setlength{\bibsep}{2.2pt}
-
-% ----- orphan/widow control ----------------------------------------------
-\widowpenalty=10000
-\clubpenalty=10000
-\setlength{\parskip}{0pt}
-\emergencystretch=1.5em
-
-% ----- headers -------------------------------------------------------------
-\usepackage{fancyhdr}
-\setlength{\headheight}{14pt}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\itshape Applied Intelligence manuscript}
-\fancyhead[R]{\small\itshape Sparsity-Adaptive Gated Eviction}
-\fancyfoot[C]{\small\thepage}
-\renewcommand{\headrulewidth}{0.3pt}
-
-% ----- hyperref (last) ------------------------------------------------------
+% hyperref LAST among content packages
 \usepackage[
-  colorlinks=true,
-  linkcolor=blue!55!black,
-  citecolor=blue!45!black,
-  urlcolor=blue!55!black,
-  bookmarks=true,
-  bookmarksnumbered=true,
-  unicode=true
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    citecolor=blue!60!black,
+    urlcolor=blue!60!black,
+    bookmarks=true,
+    bookmarksnumbered=true,
+    unicode=true
 ]{hyperref}
 
-\hypersetup{
-  pdftitle={SAGE: Sparsity-Adaptive Gated Eviction for Memory-Efficient
-            Long-Context Inference of Large Language Models},
-  pdfauthor={First Author, Second Author, Third Author},
-  pdfsubject={Efficient inference of large language models; KV cache compression},
-  pdfkeywords={Large language models, KV cache compression, Long-context
-               inference, Attention sparsity, Memory efficiency}
-}
+\geometry{a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
 
-% ----- notation macros -------------------------------------------------------
-\newcommand{\method}{SAGE}
-\newcommand{\ie}{i.e.,}
-\newcommand{\eg}{e.g.,}
+\usepackage[numbers,sort&compress]{natbib}
+\bibliographystyle{unsrtnat}
 
+\widowpenalty=10000
+\clubpenalty=10000
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+\newcommand{\sage}{\textsc{Sage-v2}}
+\newcommand{\laba}{\textsc{Laba}}
+\newcommand{\acs}{\textsc{Acs}}
+\newcommand{\dre}{\textsc{Dre}}
+
+\graphicspath{{../figures/}}
+
+% NOTE FOR AUTHORS: replace the placeholder author block before submission.
+% Unnumbered first-page footnote for the artifact / provenance note:
+\newcommand{\blfootnote}[1]{%
+  \begingroup\renewcommand{\thefootnote}{}\footnotetext{#1}\endgroup}
 \begin{document}
 
-% ======================= title block =======================
-\thispagestyle{plain}
-
+% --------------------------------------------------------------- title block
 \begin{center}
-  {\LARGE\bfseries Sparsity-Adaptive Gated Eviction for Memory-Efficient
-   Long-Context Inference of Large Language Models\par}
-  \vspace{1.1em}
-% ----- author block: TEMPLATE PLACEHOLDERS -----
-% TODO (before submission): replace with real author names,
-% affiliations and e-mail addresses. Names below are explicit
-% placeholders and must NOT be submitted as-is.
-  {\large First Author\textsuperscript{1} \quad Second Author\textsuperscript{1}
-   \quad Third Author\textsuperscript{2}\par}
-  \vspace{0.5em}
-  {\small
-  \textsuperscript{1}~[Department, University, City, Postcode, Country]\par
-  \textsuperscript{2}~[Department, University, City, Postcode, Country]\par
-  \texttt{first.author@example.edu} \quad
-  \texttt{third.author@example.edu}\par}
+{\LARGE\bfseries SAGE-v2: Provably Budget-Consistent, Layer-Adaptive\\
+KV-Cache Eviction for Memory-Efficient Long-Context Inference\par}
+\vspace{1.1em}
+{\normalsize Anonymous\par}
+\vspace{0.4em}
+{\small October 2026\par}
 \end{center}
-\vspace{0.8em}
+\vspace{0.6em}
+\blfootnote{Author list withheld for double-blind review. Artifact: all code,
+per-step accounting logs, and raw result files are released with this paper.
+This work substantially revises and corrects an earlier, unpublished
+manuscript on the same system; the corrections are documented in
+Sections~\ref{sec:prelim}--\ref{sec:theory}.}
 
-\noindent\begin{minipage}{\textwidth}
-\small
-\textbf{Abstract}\quad
-\input{sections/00-abstract}
-\vspace{0.5em}
+\begin{abstract}
+\noindent
+Eviction-based key--value (KV) cache compression lets large language models
+serve long contexts under a memory contract, yet the layer-wise budget
+formulas used by recent adaptive methods are heuristic: none of them
+provably satisfies the global contract they advertise. We revisit this
+problem from first principles. First, we show that a natural (and
+previously published) entropy-exponent allocation formula violates the
+global budget constraint at $97.4\%$ of decoding steps in simulation
+(mean overshoot $+4.2\%$), because normalising dispersion ratios before
+exponentiation does not preserve their mean. Second, we correct the
+allocation with a \emph{capped water-filling projection} and prove that it
+meets the global budget \emph{exactly} at every step, with per-layer floors
+that protect attention sinks and recency, in $O(L\log B)$ time
+(Theorem~\ref{thm:exact}). Third, we analyse the scoring side: an output
+perturbation bound tied to evicted attention mass, an explicit staleness
+separation between cumulative and decayed scores, and an equal-marginal
+argument for dispersion-weighted budgets in a stylised tail model.
+Fourth, we re-evaluate everything under a matched-entry protocol in which
+every baseline (StreamingLLM, H2O, PyramidKV, and controls) is routed
+through the same exact-budget projector on two architectures (GPT-2 with
+multi-head attention; Qwen2.5-0.5B with grouped-query attention), replacing
+the synthetic records of our earlier manuscript with fully traceable
+measurements. Experiments on WikiText-2 perplexity and needle retrieval
+with $3{,}840$ logged budget checks show zero contract violations, a
+consistent advantage of dispersion-adaptive over static-pyramid allocation,
+an existential role for sink protection (removing it multiplies perplexity
+by $84\times$), and a measurable quality--retrieval trade-off controlled by
+the decay rate. All claims are calibrated to the CPU-scale of the study,
+and the released artifact includes a GPU replication protocol.
+\end{abstract}
 
-\noindent\textbf{Keywords}\quad Large language models · KV cache
-compression · Long-context inference · Attention sparsity
-· Memory efficiency
-\end{minipage}
-\vspace{1.2em}
+\noindent\textbf{Keywords:} KV cache compression; long-context inference;
+layer-adaptive budget allocation; attention sinks; language models
 
-% ======================= body =======================
-\input{sections/01-intro}
-\input{sections/02-related}
-\input{sections/03-prelim}
-\input{sections/04-method}
-\input{sections/05-experiments}
-\input{sections/06-discussion}
-\input{sections/07-backmatter}
+\input{sec1_intro}
+\input{sec2_related}
+\input{sec3_prelim}
+\input{sec4_method}
+\input{sec5_theory}
+\input{sec6_experiments}
+\input{sec7_discussion}
+\input{sec8_conclusion}
 
-% ======================= references =======================
 \bibliography{references}
 
 \end{document}

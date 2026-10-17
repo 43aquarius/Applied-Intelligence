@@ -1,0 +1,48 @@
+{
+  "hits": [
+    0,
+    0,
+    0
+  ],
+  "hit_rate": 0.0,
+  "gen": "silver morning, narrow harvest, silver station",
+  "retention_mean": 0.026041666666666668,
+  "retention_per_layer": [
+    0.042,
+    0.208,
+    0.125,
+    0.0,
+    0.167,
+    0.0,
+    0.083,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "wall_s": 22.13517002500157,
+  "prompt_len": 2090,
+  "violations": 1,
+  "length": 2048,
+  "trial": 0,
+  "method": "pyramidkv",
+  "multi": true,
+  "codes": [
+    "5845685",
+    "9380391",
+    "9709911"
+  ]
+}

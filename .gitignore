@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# LaTeX / Tectonic
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexpdf
+*.log
+*.out
+*.synctex.gz
+.tectonic/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# HF cache
+.cache/

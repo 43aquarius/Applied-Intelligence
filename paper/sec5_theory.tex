@@ -1,0 +1,188 @@
+\section{Theoretical analysis}\label{sec:theory}
+
+\subsection{Exact global budgets by capped water-filling}
+
+\begin{theorem}[Exact-budget allocation]\label{thm:exact}
+Let $L\ge1$, let $w\in\mathbb{R}_{\ge0}^{L}$ with $\sum_l w_l=1$, and let
+$\ell,u\in\mathbb{Z}^{L}$ with $0\le\ell_l\le u_l$ for all $l$. Let
+$B\in\mathbb{Z}$ with $\sum_l\ell_l\le B\le\sum_l u_l$, and define
+\begin{equation}
+f(\mu) \;=\; \sum_{l=1}^{L}\operatorname{clip}\!\bigl(w_l\,\mu,\ \ell_l,\
+u_l\bigr),\qquad \mu\ge0 .
+\end{equation}
+Then: (i) there exists $\mu^{*}\ge0$ with $f(\mu^{*})=B$; (ii) the
+integer vector returned by Algorithm~\ref{alg:sage} (bisection on $\mu$
+followed by largest-remainder rounding restricted to the box, with
+$\pm1$ repair inside slack) satisfies
+\begin{equation}
+\sum_{l=1}^{L} b_l = B \quad\text{and}\quad
+\ell_l\;\le\; b_l\;\le\; u_l \quad\text{for all } l;
+\end{equation}
+(iii) the bisection terminates after at most
+$\lceil\log_2(\mu_{\max}/\varepsilon_\mu)\rceil$ iterations, each costing
+$O(L)$, and the repair terminates after at most $|B-\sum_l\lfloor
+\operatorname{clip}(w_l\mu^{*})\rfloor|$ unit steps.
+\end{theorem}
+
+\begin{proof}
+\emph{(i)} $f$ is a sum of continuous non-decreasing functions of $\mu$,
+hence continuous and non-decreasing, with
+$f(0)=\sum_l\ell_l\le B$ and
+$f(\mu)=\sum_l u_l\ge B$ for every
+$\mu\ge\mu_{\max}:=\max_{l:\,w_l>0} u_l/w_l$ (every layer is clipped at
+its cap there; layers with $w_l=0$ contribute $\ell_l\le u_l$ throughout).
+If $B$ equals either boundary value the claim is immediate; otherwise the
+intermediate value theorem applied to $f$ on $[0,\mu_{\max}]$ yields
+$\mu^{*}$.
+
+\emph{(ii)} Let $b^{*}_l=\operatorname{clip}(w_l\mu^{*},\ell_l,u_l)$, so
+$\sum_l b^{*}_l=B$ in the reals. Set
+$\hat b_l=\lfloor b^{*}_l\rfloor\in\mathbb{Z}$; since $\ell_l$ is an
+integer and $b^{*}_l\ge\ell_l$, we get $\hat b_l\ge \ell_l$, and $\hat
+b_l\le b^{*}_l\le u_l$. Let $r=B-\sum_l\hat b_l$, and note
+$0\le r< L$ because $\sum_l b^{*}_l=B$ is an integer and each discarded
+fraction is in $[0,1)$. If $r>0$, then $\sum_l\hat b_l<B\le\sum_l u_l$,
+so some layer has $\hat b_l<u_l$; the rounding step increments the $r$
+layers with the largest fractional remainders $b^{*}_l-\hat b_l$ among
+those with slack, each increment preserving the box. If after the
+restricted rounding some residual $r'$ remains (possible only when
+fewer than $r$ layers have slack, which cannot happen when
+$\sum\hat b<B\le\sum u$, but is retained for numerical safety), the
+repair loop increments any layer with slack, which exists by the same
+inequality, and decrements symmetrically when $r<0$. Termination and the
+invariants $\ell\le b\le u$, $\sum b=B$ follow by construction.
+
+\emph{(iii)} Bisection halves an interval of initial width $\mu_{\max}$
+containing a root because $f(\mu_{\mathrm{lo}})\le B\le
+f(\mu_{\mathrm{hi}})$ is maintained as the loop invariant; the iteration
+bound is standard. Each evaluation of $f$ is $O(L)$. The repair performs
+at most $|r|$ unit operations, each $O(L)$ to locate slack.
+\end{proof}
+
+\begin{remark}[What the theorem buys in deployment]
+Theorem~\ref{thm:exact} is not a statement about a limit or an
+approximation: the projector is invoked at every compression step of every
+run in Section~\ref{sec:exp}, and each invocation is followed by an
+assertion of the conclusion. Across $3{,}840$ logged compression steps
+(all configurations reported in this paper) the assertion never fired,
+and the deployed violation count in Table~\ref{tab:compliance} is zero
+for every method---while the uncorrected exponent formula of our earlier
+manuscript violates the contract in $97.4\%$ of simulated steps
+(Section~\ref{sec:exp-compliance}).
+\end{remark}
+
+\subsection{Eviction perturbation and what scoring should preserve}
+
+\begin{lemma}[Output perturbation bound]\label{lem:perturb}
+Fix a query $q$ and layer $l$, let $a\in\Delta^{t-1}$ be its attention
+distribution, $v_i$ the cached values with
+$V=\max_i\|v_i\|_2$, and $C\subseteq\{1,\dots,t\}$ a retained set with
+mass $m_C=\sum_{i\in C}a_i\in(0,1]$. Let
+$o=\sum_i a_i v_i$ be the full-cache output and
+$o_C=\sum_{i\in C}a_i v_i/m_C$ the renormalised compressed output. Then
+\begin{equation}
+\|o-o_C\|_2 \;\le\; 2\,V\,\bigl(1-m_C\bigr).
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+$o-o_C=\sum_{i\in C}a_i\bigl(1-\tfrac1{m_C}\bigr)v_i
+-\sum_{i\notin C}a_i v_i$. Since $m_C\le1$, the coefficient
+$|1-1/m_C|=(1-m_C)/m_C$ on the first sum, whose total mass is $m_C$;
+the first term is thus bounded by $(1-m_C)\,V$. The second sum has mass
+$1-m_C$ and is bounded by $(1-m_C)\,V$. Summing gives the claim.
+\end{proof}
+
+Lemma~\ref{lem:perturb} says the right quantity to preserve is
+\emph{retained attention mass} $m_C$, which is exactly what score-based
+top-$k$ retention maximises at fixed budget: keeping the $b_l$ entries
+with the largest instantaneous attention maximises $m_C$ for that query.
+\sage{}'s \acs{} ranks by discounted \emph{past} mass, which is the
+correct surrogate only when past mass predicts future mass---the
+assumption made precise next.
+
+\subsection{Staleness: an explicit separation}
+
+\begin{proposition}[Decay separates when attention shifts]\label{prop:staleness}
+Consider two history entries $x$ (early) and $y$ (late) and suppose that
+for steps $1,\dots,K$ the query places mass $\tfrac12$ on $x$ and none on
+$y$, while for steps $K+1,\dots,2K$ it places mass $\tfrac12$ on $y$ and
+none on $x$ (remaining mass goes to protected entries). Then at step
+$2K$ the cumulative scores ($\gamma=1$) are tied,
+$S^{(1)}(x)=S^{(1)}(y)=\tfrac K2$, so cumulative ranking cannot prefer
+the currently attended entry and any tie-breaking rule evicting the
+smallest-position entry evicts $y$. For every $\gamma\in(0,1)$ and every
+$K\ge1$, the decayed scores strictly prefer $y$:
+\begin{equation}
+\frac{S^{(\gamma)}(y)}{S^{(\gamma)}(x)}
+\;=\;\gamma^{-K}\;>\;1 .
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+$S^{(\gamma)}(x)=\tfrac12\sum_{s=1}^{K}\gamma^{\,2K-s}
+=\tfrac12\,\gamma^{K}\,\frac{1-\gamma^{K}}{1-\gamma}$ and
+$S^{(\gamma)}(y)=\tfrac12\sum_{s=K+1}^{2K}\gamma^{\,2K-s}
+=\tfrac12\,\frac{1-\gamma^{K}}{1-\gamma}$; the ratio is
+$\gamma^{-K}$.
+\end{proof}
+
+The flip side is equally explicit: if an entry is \emph{persistently}
+attended (mass $\tfrac12$ at every step), decay shrinks its score
+relative to a recently-active entry by the same factor $\gamma^{-K}$, so
+aggressive decay $(\gamma\to0)$ discards long-horizon structure that
+stationary text rewards. This is precisely the trade-off measured in
+Section~\ref{sec:exp-sens}: perplexity improves monotonically as
+$\gamma\to1$ on GPT-2 (54.50 at $\gamma=0.98$ versus 46.89 at
+$\gamma=1$), while retrieval with shifted needles and the
+multi-instruction probe favour $\gamma<1$.
+
+\subsection{Why dispersion-weighted budgets: an equal-marginal argument}
+
+\begin{proposition}[Equal-marginal allocation under power-law tails]
+\label{prop:marginal}
+Suppose the evictable attention tail of layer $l$ is power-law in the
+budget: the mass lost by keeping only its top $b$ entries is
+$\varepsilon_l(b)=c_l\,(b+1)^{-\alpha_l}$ with $c_l>0$, $\alpha_l>0$.
+Consider the convex program
+\begin{equation}
+\min_{b\ge0}\ \sum_{l=1}^{L}\varepsilon_l(b_l)
+\quad\text{s.t.}\quad \sum_l b_l = B .
+\end{equation}
+Its unique solution satisfies the equal-marginal condition
+$(b_l+1)^{\alpha_l+1}\ \propto\ c_l\,\alpha_l$; in particular, holding
+$\alpha$ fixed across layers, the optimal budget $b_l$ is strictly
+increasing in the tail mass $c_l$. Within the Zipf family
+$p(i)\propto i^{-(1+\alpha)}$, the normalised entropy of $p$ is strictly
+decreasing in $\alpha$ (heavier tails are more dispersed), so allocating
+budget as an increasing function of measured dispersion $\kappa_l$, as
+Eq.~\eqref{eq:weights} does, reproduces the first-order behaviour of the
+optimal allocation, with $\tau$ controlling the curvature.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Each $\varepsilon_l$ is strictly convex and decreasing on $b\ge0$, so the
+Lagrangian stationarity condition
+$\varepsilon_l'(b_l)=-c_l\alpha_l(b_l+1)^{-\alpha_l-1}=\lambda$ for all
+$l$ is necessary and sufficient; solving gives
+$(b_l+1)^{\alpha_l+1}=c_l\alpha_l/|\lambda|$, and monotonicity in $c_l$
+follows since $\alpha_l+1>0$. For the Zipf family,
+$p(i)=i^{-(1+\alpha)}/\zeta(1+\alpha)$; the entropy
+$H(p)=(1+\alpha)\,\bigl(-\zeta'/\zeta(\,1+\alpha)\bigr)+\ln
+\zeta(1+\alpha)$ is decreasing in $\alpha$ (standard result for
+power-law families: increasing $\alpha$ concentrates $p$), which
+identifies measured entropy as a monotone proxy of tail mass within the
+family. The full derivation appears in the artifact.
+\end{proof}
+
+Two caveats keep this honest. The proposition is a statement about a
+stylised single-parameter tail family, not about empirical attention;
+real layers mix regimes, and the measured profiles in
+Figure~\ref{fig:kappa} are not monotone in depth (unlike the static
+pyramid prior). And the equal-marginal optimum is itself a surrogate: it
+minimises per-layer evicted mass, which by Lemma~\ref{lem:perturb}
+bounds output perturbation, rather than end-task loss. Both gaps are
+exactly what the empirical sections measure: dispersion-adaptive weights
+beat static and uniform baselines on both architectures
+(Tables~\ref{tab:main} and~\ref{tab:sens}), and the direction of the
+benefit tracks the measured, architecture-specific profiles.

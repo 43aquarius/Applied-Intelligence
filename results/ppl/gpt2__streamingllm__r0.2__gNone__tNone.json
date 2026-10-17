@@ -1,0 +1,16 @@
+{
+  "model": "gpt2",
+  "policy": "streamingllm",
+  "rho": 0.2,
+  "gamma": null,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 32,
+  "n_tokens": 32736,
+  "avg_nll": 4.0930793393827285,
+  "ppl": 59.92413463305552,
+  "wall_s": 73.18480661299964,
+  "tok_s": 447.3059575480956,
+  "budget_violations": 0
+}

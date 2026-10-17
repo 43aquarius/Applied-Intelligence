@@ -1,0 +1,16 @@
+{
+  "model": "qwen05b",
+  "policy": "h2o",
+  "rho": 0.05,
+  "gamma": null,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 10,
+  "n_tokens": 20470,
+  "avg_nll": 3.0094143970587885,
+  "ppl": 20.275523042083442,
+  "wall_s": 286.40014897900255,
+  "tok_s": 71.47342650824096,
+  "budget_violations": 0
+}

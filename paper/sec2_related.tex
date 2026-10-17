@@ -1,0 +1,92 @@
+\section{Related work}\label{sec:related}
+
+\paragraph{Eviction with importance scores.}
+H2O formalises KV eviction as keeping a balance of recent tokens and
+\emph{heavy hitters} with the largest cumulative attention mass, and gives
+a greedy-retention argument in the language of submodular
+functions~\cite{zhang2023h2o}. ScissorHands advances the
+persistence-of-importance hypothesis---pivotal tokens tend to stay
+pivotal---and manages the cache accordingly~\cite{liu2023scissorhands}.
+TOVA drops, at each step, the single token with the lowest current
+attention, letting the cache size follow the attention distribution
+\cite{oren2024tova}; in our comparison we cap such policies at the
+contract for comparability, following the convention of reporting capped
+variants explicitly. StreamingLLM shows that keeping a small prefix of
+\emph{attention sinks} plus a recency window stabilises streaming
+generation indefinitely~\cite{xiao2024streamingllm}; sinks have since
+become standard protected structure, and we adopt them in every scoring
+policy. Our \acs{} score is an exponentially decayed cumulative mass: it
+inherits the accumulation of H2O but discounts stale mass, and
+Proposition~\ref{prop:staleness} gives a clean separation where the
+decay strictly matters. Decay-weighted importance is, by itself, an
+incremental step; our contribution is to make it part of a stack whose
+memory behaviour is provably consistent.
+
+\paragraph{Layer-wise budget allocation.}
+PyramidKV popularised non-uniform layer budgets with a static pyramidal
+profile---more cache for lower layers, where attention is
+dispersed---matching full-cache performance on LongBench at $12\%$
+retention~\cite{cai2024pyramidkv}. CAKE frames eviction as cake slicing:
+layer preferences are assessed from spatial and temporal attention
+dynamics and memory is managed in a cascading manner, with an eviction
+indicator that accounts for shifting importance over
+time~\cite{qin2025cake}. LAVa derives a layer-attention output loss
+metric that enables dynamic head- and layer-wise budgets without
+training~\cite{shen2025lava}. These methods supply strong empirical
+evidence that allocation matters, but their budget rules are heuristic:
+the profile shapes are fixed priors, and the dynamic rules are validated
+by end-task accuracy rather than by any guarantee on the realised cache
+size. Our \laba{} mechanism differs in two ways. First, the allocation is
+computed at every step as the projection of measured dispersion weights
+onto the exact budget set (Theorem~\ref{thm:exact}), so the contract holds
+by construction rather than by tuning. Second, because the projection
+accepts arbitrary weight vectors, the same machinery instantiates uniform
+budgets (H2O-style), static pyramids (PyramidKV-style), and our adaptive
+weights, which is what makes the matched-entry comparison of
+Section~\ref{sec:exp} possible. Very recent systems work continues to
+expand this direction, which we view as further evidence that allocation
+is a first-class design axis.
+
+\paragraph{Query-aware and prefill-time selection.}
+A complementary family avoids the history-only weakness of eviction
+scores. SnapKV compresses at prefill time by observing which positions a
+lookahead window of prompts attends to~\cite{li2024snapkv}. Quest keeps
+the full cache resident but loads only pages whose key ranges can
+interact strongly with the current query, using page-level min/max
+statistics~\cite{tang2024quest}. DuoAttention distinguishes retrieval
+heads from streaming heads with a learned mask and keeps full caches only
+for the former~\cite{xiao2024duoattention}. These methods motivate the
+needle-retention diagnostics we report in Section~\ref{sec:exp}: when a
+history-only policy evicts a needle, no amount of decoding-time cleverness
+recovers it, and measuring retention in the cache isolates that failure
+mode from generation errors.
+
+\paragraph{Quantisation and systems.}
+KIVI quantises keys per-channel and values per-token to 2 bits with
+tuning-free rounding, attacking the same memory wall
+orthogonally~\cite{liu2024kivi}. PagedAttention manages cache memory at
+page granularity~\cite{kwon2023paged}, and recent systems work notes that
+kernel-level constraints---FlashAttention never materialising attention
+scores, paged allocators reclaiming memory only at page
+granularity---shape what eviction policies can actually be
+deployed~\cite{dao2023flashattention2,mao2026infra}. Two of our
+implementation decisions respond directly to these constraints: we extract
+scores from eager attention kernels (so the accounting of scoring cost is
+explicit and honest), and our contract is defined over \emph{entry
+counts}, which upper-bounds what any page-based allocator would need to
+hold. Robustness studies of compression, including security and
+instruction-following side effects, further motivate reporting
+multi-instruction behaviour rather than perplexity
+alone~\cite{ma2026safety}.
+
+\paragraph{Position versus the state of the art.}
+Compared with the strongest layer-adaptive methods (CAKE, LAVa), \sage{}
+does not claim better end-task accuracy at scale; our claims are
+orthogonal and, we argue, prior in importance: a provably exact global
+budget with protected floors, an analysis that explains \emph{when}
+decayed scoring and dispersion weighting help, and a matched-entry
+protocol that makes cross-method comparisons meaningful. The comparison in
+Section~\ref{sec:exp} is therefore deliberately internal---same harness,
+same projector, same inputs, same accounting---and its scope (models to
+$0.5$B, contexts to $4$K, CPU) is reported as a first-class limitation
+rather than hidden.
