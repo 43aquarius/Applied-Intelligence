@@ -1,6 +1,10 @@
 # SAGE-v2 deep analysis — rebuilt notes (2026-11-10, cron round)
 
 
+> Companion to `deep_analysis_2026-11-10.md` (parallel rebuild, same day): same raw
+> artifacts; this version adds the corrected CPU-needle attribution (Qwen2.5-0.5B,
+> 24 layers) and one-sided significance phrasing. Figures regenerated.
+
 Recomputed from `results/` and `results/gpu/` JSONs after the sandbox loss;
 every headline number is cross-checked against the values preserved in worklog
 Task 9/10 records (verification table at the bottom).
@@ -52,24 +56,27 @@ Two metrics per cell: retrieval hit-rate and mean needle retention. Cell sets:
 13 single-needle cells (L2048 d0-100 x t0/t1 + L4096 d0/50/100 t0); 15-cell variant
 adds the two multi-needle cells where both methods exist.
 
-- **GPT-2 124M**:
-  - retention, 13 cells: mean diff SAGE-H2O = **+0.1370** [95% bootstrap CI -0.008, +0.302], Cohen's d = 0.48, wins 4/13
-  - retention, 15 cells (incl. multi): mean diff SAGE-H2O = **+0.1428** [95% bootstrap CI +0.026, +0.282], Cohen's d = 0.53, wins 6/15
-  - hit-rate, 13 cells: mean diff SAGE-H2O = **-0.0769** [95% bootstrap CI -0.308, +0.154], Cohen's d = -0.16, wins 1/13
+- **Qwen2.5-0.5B**:
+  - retention, 13 cells: mean diff SAGE-H2O = **+0.1370** [95% bootstrap CI -0.008, +0.302; one-sided lower +0.028], Cohen's d = 0.48, wins 4/13
+  - retention, 15 cells (incl. multi): mean diff SAGE-H2O = **+0.1428** [95% bootstrap CI +0.026, +0.282; one-sided lower +0.041], Cohen's d = 0.53, wins 6/15
+  - hit-rate, 13 cells: mean diff SAGE-H2O = **-0.0769** [95% bootstrap CI -0.308, +0.154; one-sided lower -0.308], Cohen's d = -0.16, wins 1/13
 - **Qwen2.5-1.5B**:
-  - retention, 13 cells: mean diff SAGE-H2O = **+0.1576** [95% bootstrap CI -0.001, +0.336], Cohen's d = 0.50, wins 5/13
-  - retention, 15 cells (incl. multi): mean diff SAGE-H2O = **+0.1618** [95% bootstrap CI +0.035, +0.313], Cohen's d = 0.56, wins 7/15
-  - hit-rate, 13 cells: mean diff SAGE-H2O = **+0.1538** [95% bootstrap CI +0.000, +0.385], Cohen's d = 0.41, wins 2/13
+  - retention, 13 cells: mean diff SAGE-H2O = **+0.1576** [95% bootstrap CI -0.001, +0.336; one-sided lower +0.040], Cohen's d = 0.50, wins 5/13
+  - retention, 15 cells (incl. multi): mean diff SAGE-H2O = **+0.1618** [95% bootstrap CI +0.035, +0.313; one-sided lower +0.052], Cohen's d = 0.56, wins 7/15
+  - hit-rate, 13 cells: mean diff SAGE-H2O = **+0.1538** [95% bootstrap CI +0.000, +0.385; one-sided lower +0.000], Cohen's d = 0.41, wins 2/13
 
-Honesty note for reviewer replies: at 124M the hit-rate pairing is **negative** (−0.077, 1/13 cells) while retention pairing is positive (+0.137, d=0.48) — the needle claim rests on retention (partial credit for partially-retained needles), and hit-rate at this scale is underpowered (only 4 of 26 paired runs fire at all). At 1.5B both metrics favour SAGE.
+Significance phrasing for reviewer replies: the 1.5B retention effect is borderline — two-sided 95% CI lower bound -0.001 (knife-edge at 0), one-sided lower bound +0.336; recommend 'borderline significant (one-sided)' wording.
+Honesty note for reviewer replies: at 0.5B the hit-rate pairing is **negative** (−0.077, 1/13 cells) while retention pairing is positive (+0.137, d=0.48) — the needle claim rests on retention (partial credit for partially-retained needles), and hit-rate at this scale is underpowered (only 4 of 26 paired runs fire at all). At 1.5B both metrics favour SAGE.
 
 ## 5. Multi-needle (3 needles) at L=2048
 
 | model | full | SAGE | SAGE-nodecay | H2O | PyramidKV |
 |---|---|---|---|---|---|
-| GPT-2 124M | 1.000 | 0.333 | 0.000 | 0.000 | 0.000 |
+| Qwen2.5-0.5B | 1.000 | 0.333 | 0.000 | 0.000 | 0.000 |
 | Qwen2.5-1.5B | 1.000 | 0.333 | 0.000 | 0.000 | 0.000 |
 | Qwen2.5-3B | 1.000 | 0.333 | 0.667 | 0.000 | 0.000 |
+
+(CPU needle rows are Qwen2.5-0.5B — 24-layer traces; GPT-2 was not run on the probe.)
 
 ## 6. Layer-allocation behaviour (adaptive vs static pyramid)
 
@@ -130,10 +137,10 @@ Honesty note for reviewer replies: at 124M the hit-rate pairing is **negative** 
 | qwen05b SAGE degradation % | 22.6 | 22.6246 | yes |
 | qwen15b SAGE degradation % | 17.1 | 17.0600 | yes |
 | qwen3b SAGE degradation % | 18.2 | 18.1772 | yes |
-| gpt2 paired retention diff (13 cells) | 0.137 | 0.1370 | yes |
+| qwen05b paired retention diff (13 cells) | 0.137 | 0.1370 | yes |
 | qwen15b paired retention diff (15 cells) | 0.161 | 0.1618 | yes |
-| gpt2 multi SAGE | 0.333 | 0.3333 | yes |
-| gpt2 multi H2O | 0.0 | 0.0000 | yes |
+| qwen05b multi SAGE | 0.333 | 0.3333 | yes |
+| qwen05b multi H2O | 0.0 | 0.0000 | yes |
 | qwen15b multi SAGE | 0.333 | 0.3333 | yes |
 | qwen15b multi H2O | 0.0 | 0.0000 | yes |
 | qwen3b multi SAGE | 0.333 | 0.3333 | yes |
@@ -159,8 +166,8 @@ Honesty note for reviewer replies: at 124M the hit-rate pairing is **negative** 
 
 - Needle JSONs carry a per-run `violations` counter distinct from the accounting audit;
   the 0-violation claim is scoped to the 79 accounting streams (verified above).
-- `results/needle` (CPU) has no model prefix; it contains GPT-2 124M runs only
-  (0.5B CPU model was not evaluated on the needle probe).
+- `results/needle` (CPU) has no model prefix; it contains **Qwen2.5-0.5B** runs only
+  (24-layer retention traces; GPT-2, 12 layers, was not evaluated on the needle probe).
 - Overhead on T4 is transfer-bound (observe step dominates; means 50.6 / 108.3 ms vs
   compress means 3.7 / 4.3 ms); CPU max values are cold-start warmup outliers.
 - Spearman(alloc, pyramid) uses the final-step budget share (0.308 / 0.252); the

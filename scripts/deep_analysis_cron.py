@@ -16,7 +16,10 @@ OUT_FIG_ALLOC = os.path.join(REPO, "analysis", "fig_alloc_divergence.png")
 MODELS = ["gpt2", "qwen05b", "qwen15b", "qwen3b"]
 MODEL_LABEL = {"gpt2": "GPT-2 124M", "qwen05b": "Qwen2.5-0.5B", "qwen15b": "Qwen2.5-1.5B", "qwen3b": "Qwen2.5-3B"}
 PPL_DIR = {"gpt2": "results/ppl", "qwen05b": "results/ppl", "qwen15b": "results/gpu/ppl", "qwen3b": "results/gpu/ppl"}
-NEEDLE_DIR = {"gpt2": "results/needle", "qwen15b": "results/gpu/needle", "qwen3b": "results/gpu/needle"}
+NEEDLE_DIR = {"qwen05b": "results/needle", "qwen15b": "results/gpu/needle", "qwen3b": "results/gpu/needle"}
+# NOTE (attribution correction, verified): results/needle files carry 24-layer retention
+# traces -> they are Qwen2.5-0.5B runs (GPT-2 has 12 layers; n_layers from accounting:
+# gpt2=12, qwen05b=24). Earlier notes mislabeled this dir as GPT-2 124M.
 
 def ppl_path(model, policy, rho, g="None", t="None"):
     return os.path.join(REPO, PPL_DIR[model], f"{model}__{policy}__r{rho}__g{g}__t{t}.json")
@@ -43,6 +46,10 @@ def w(*args):
 
 # ---------------------------------------------------------------- 1. audit
 w("# SAGE-v2 deep analysis — rebuilt notes (2026-11-10, cron round)", "")
+w("")
+w("> Companion to `deep_analysis_2026-11-10.md` (parallel rebuild, same day): same raw")
+w("> artifacts; this version adds the corrected CPU-needle attribution (Qwen2.5-0.5B,")
+w("> 24 layers) and one-sided significance phrasing. Figures regenerated.")
 w("")
 w("Recomputed from `results/` and `results/gpu/` JSONs after the sandbox loss;")
 w("every headline number is cross-checked against the values preserved in worklog")
@@ -152,11 +159,11 @@ def boot_ci(diff, n=10000, seed=7):
         s = [diff[rnd.randrange(len(diff))] for _ in range(len(diff))]
         means.append(sum(s) / len(s))
     means.sort()
-    return means[int(0.025 * n)], means[int(0.975 * n)]
+    return means[int(0.025 * n)], means[int(0.975 * n)], means[int(0.05 * n)]
 
 def paired(model, metric="retention_mean", with_multi=False):
     base = os.path.join(REPO, NEEDLE_DIR[model])
-    pre = "" if model == "gpt2" else f"{model}__"  # CPU needle files carry no model prefix
+    pre = "" if model == "qwen05b" else f"{model}__"  # CPU needle files carry no model prefix
     cells = []
     for L_ in ["2048", "4096"]:
         tset = ["0"] if L_ == "4096" else ["0", "1"]  # L4096 was run at t0 only
@@ -182,7 +189,7 @@ def cohens_d_paired(diff):
     return mu / math.sqrt(var) if var > 0 else 0.0
 
 paired_sum = {}
-for model, preserved in [("gpt2", 0.137), ("qwen15b", 0.161)]:
+for model, preserved in [("qwen05b", 0.137), ("qwen15b", 0.161)]:
     w(f"- **{MODEL_LABEL[model]}**:")
     for metric, wm, tag in [("retention_mean", False, "retention, 13 cells"),
                             ("retention_mean", True, "retention, 15 cells (incl. multi)"),
@@ -190,21 +197,25 @@ for model, preserved in [("gpt2", 0.137), ("qwen15b", 0.161)]:
         cells = paired(model, metric, wm)
         diff = [a - b for a, b, _ in cells]
         mu = sum(diff) / len(diff)
-        lo, hi = boot_ci(diff)
+        lo, hi, lo1 = boot_ci(diff)
         d = cohens_d_paired(diff)
         wins = sum(1 for x in diff if x > 0)
-        w(f"  - {tag}: mean diff SAGE-H2O = **{mu:+.4f}** [95% bootstrap CI {lo:+.3f}, {hi:+.3f}], "
-          f"Cohen's d = {d:.2f}, wins {wins}/{len(diff)}")
+        w(f"  - {tag}: mean diff SAGE-H2O = **{mu:+.4f}** [95% bootstrap CI {lo:+.3f}, {hi:+.3f}; "
+          f"one-sided lower {lo1:+.3f}], Cohen's d = {d:.2f}, wins {wins}/{len(diff)}")
         if metric == "retention_mean" and not wm:
-            paired_sum[model] = (mu, lo, hi, d, len(cells))
-# preserved values: +0.137 = gpt2 retention 13-cell (exact); +0.161 = qwen15b retention
+            paired_sum[model] = (mu, lo, hi, lo1, d, len(cells))
+# preserved values: +0.137 = 0.5B retention 13-cell (exact); +0.161 = 1.5B retention
 # (0.158 on 13 cells / 0.162 on 15 cells — preserved value consistent with either rounding)
-check("gpt2 paired retention diff (13 cells)", 0.137, paired_sum["gpt2"][0], tol=0.005)
+check("qwen05b paired retention diff (13 cells)", 0.137, paired_sum["qwen05b"][0], tol=0.005)
 q15 = paired("qwen15b", "retention_mean", True)
 q15m = sum(a - b for a, b, _ in q15) / len(q15)
 check("qwen15b paired retention diff (15 cells)", 0.161, q15m, tol=0.02)
 w("")
-w("Honesty note for reviewer replies: at 124M the hit-rate pairing is **negative** (−0.077, "
+ws = paired_sum["qwen15b"]
+w(f"Significance phrasing for reviewer replies: the 1.5B retention effect is borderline — "
+  f"two-sided 95% CI lower bound {ws[1]:+.3f} (knife-edge at 0), one-sided lower bound "
+  f"{ws[2]:+.3f}; recommend 'borderline significant (one-sided)' wording.")
+w("Honesty note for reviewer replies: at 0.5B the hit-rate pairing is **negative** (−0.077, "
   "1/13 cells) while retention pairing is positive (+0.137, d=0.48) — the needle claim rests "
   "on retention (partial credit for partially-retained needles), and hit-rate at this scale is "
   "underpowered (only 4 of 26 paired runs fire at all). At 1.5B both metrics favour SAGE.")
@@ -213,7 +224,7 @@ w("Honesty note for reviewer replies: at 124M the hit-rate pairing is **negative
 w("", "## 5. Multi-needle (3 needles) at L=2048", "")
 w("| model | full | SAGE | SAGE-nodecay | H2O | PyramidKV |")
 w("|---|---|---|---|---|---|")
-for model, base, pre in [("gpt2", "results/needle", ""), ("qwen15b", "results/gpu/needle", "qwen15b__"),
+for model, base, pre in [("qwen05b", "results/needle", ""), ("qwen15b", "results/gpu/needle", "qwen15b__"),
                          ("qwen3b", "results/gpu/needle", "qwen3b__")]:
     vals = {}
     for meth in ["full", "sage", "sage-nodecay", "h2o", "pyramidkv"]:
@@ -229,6 +240,8 @@ for model, base, pre in [("gpt2", "results/needle", ""), ("qwen15b", "results/gp
     check(f"{model} multi H2O", 0.0, vals["h2o"], tol=0.02)
     if model == "qwen3b":
         check("qwen3b multi nodecay", 0.667, vals["sage-nodecay"], tol=0.02)
+w("")
+w("(CPU needle rows are Qwen2.5-0.5B — 24-layer traces; GPT-2 was not run on the probe.)")
 
 # ------------------------------------------------------------ 6. allocation
 w("", "## 6. Layer-allocation behaviour (adaptive vs static pyramid)", "")
@@ -376,8 +389,8 @@ w("")
 w("## 10. Caveats", "")
 w("- Needle JSONs carry a per-run `violations` counter distinct from the accounting audit;")
 w("  the 0-violation claim is scoped to the 79 accounting streams (verified above).")
-w("- `results/needle` (CPU) has no model prefix; it contains GPT-2 124M runs only")
-w("  (0.5B CPU model was not evaluated on the needle probe).")
+w("- `results/needle` (CPU) has no model prefix; it contains **Qwen2.5-0.5B** runs only")
+w("  (24-layer retention traces; GPT-2, 12 layers, was not evaluated on the needle probe).")
 w("- Overhead on T4 is transfer-bound (observe step dominates; means 50.6 / 108.3 ms vs",
   "  compress means 3.7 / 4.3 ms); CPU max values are cold-start warmup outliers.")
 w("- Spearman(alloc, pyramid) uses the final-step budget share (0.308 / 0.252); the")
