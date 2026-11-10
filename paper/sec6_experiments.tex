@@ -92,9 +92,13 @@ under the formula's own lower clip. The corrected projection incurs zero
 violations---in simulation, across $19{,}980$ randomised stress
 instances, and deployed in every CPU run of this paper
 ($3{,}840$ compression steps across all reported configurations, each
-carrying a live assertion), as well as in every GPU replication run
-(Section~\ref{sec:exp-gpu}: 34 runs, $695{,}980$ tokens, zero
-violations). The overhead of correctness is modest:
+carrying a live assertion), as well as in every GPU perplexity run of
+this paper (Sections~\ref{sec:exp-gpu} and~\ref{sec:exp-ext8k}:
+$50$ runs, $1{,}130{,}113$ evaluated tokens; the cache never exceeds
+the advertised contract at any logged step, and the deep-window
+under-retention finding of Section~\ref{sec:exp-ext8k} is a
+floor-exactness effect reported separately, never an over-fill). The
+overhead of correctness is modest:
 scoring plus projection plus eviction together add $2.5$--$9.6$\,ms per
 64-token chunk on the two-core CPU, against $200$--$500$\,ms of forward
 time per chunk.
@@ -487,3 +491,123 @@ eager mode, not about the allocator, and it directly motivates the
 fused or re-computed score paths that production kernels would use
 \cite{mao2026infra}. The full grid---both models, all policies, needle
 suite, sensitivity---completes in $35$ minutes on one T4.
+
+\subsection{RQ7b: Does the picture extend to 8K and 16K contexts?}
+\label{sec:exp-ext8k}
+
+To test whether the findings survive another doubling and quadrupling
+of the context axis, we extended the grid to $8{,}192$- and
+$16{,}384$-token contexts on Qwen2.5-1.5B-Instruct with the identical
+engine, protocol, and live assertions (fp32, T4; the extension grid
+completes in $42$ minutes on the same hardware). Perplexity uses 3
+non-overlapping $8{,}192$-token and 2 non-overlapping $16{,}384$-token
+WikiText-2 windows ($434{,}133$ evaluated tokens); the needle suite
+runs one trial per depth position (five depths at $8$K, three at
+$16$K, compute-dictated) plus the multi-needle probe at $8$K.
+
+\begin{table}[t]
+\centering\small
+\caption{Context extension (Qwen2.5-1.5B-Instruct, fp32, matched
+entries, $\rho=0.2$): WikiText-2 perplexity and mean needle retention
+at the model's full window. ``--'' marks method$\times$phase pairs the
+extension grid did not run. The ordering of the $4{,}096$-token
+replication (Table~\ref{tab:gpu}) transfers unchanged, and the
+decayed-scoring retention advantage widens with depth.}
+\label{tab:ext8k}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}} l cc cc}
+\toprule
+& \multicolumn{2}{c}{PPL} & \multicolumn{2}{c}{Needle retention} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Method & 8K & 16K & 8K & 16K \\
+\midrule
+Full cache (reference) & 7.949 & 7.863 & 1.000 & 1.000 \\
+StreamingLLM (sinks + window) & -- & -- & 0.200 & 0.333 \\
+H2O (cumulative, uniform budget) & 9.287 & 9.415 & 0.023 & 0.040 \\
+PyramidKV (cumulative, static pyramid) & 9.775 & 9.899 & 0.036 & 0.042 \\
+SAGE v2 (decay + entropy budget) & 8.716 & 8.417 & \textbf{0.242} & \textbf{0.369} \\
+SAGE v2 w/ uniform budget ($\tau{=}0$) & \textbf{8.661} & \textbf{8.373} & -- & -- \\
+\bottomrule
+\end{tabular*}
+\end{table}
+
+Table~\ref{tab:ext8k} shows the result. The $4{,}096$-token ordering
+transfers unchanged: the \sage{} family takes the top two places among
+eviction methods at both windows (uniform-budget variant first,
+$8.661$/$8.373$, against H2O's $9.287$/$9.415$ and PyramidKV's
+$9.775$/$9.899$), and the static pyramid remains the worst eviction
+method. The budget sweep at $8$K replicates the crossover shape of
+Figure~\ref{fig:gpucurve} (\sage{} $10.061$/$9.249$/$8.716$ at
+$\rho=0.05/0.1/0.2$ vs.\ H2O $10.831$/$9.947$/$9.287$ and PyramidKV
+$11.423$/$10.584$/$9.775$). Retrieval aggravates with depth exactly as
+the retention diagnostic predicts: the history-score methods retain
+only $2$--$4\%$ of needle tokens at both windows, while \sage's decayed
+scoring retains $0.242$ at $8$K and $0.369$ at $16$K---the largest
+retention advantage measured in this paper---and
+remains the only compressed method to retrieve any multi-needle code at
+$8$K ($0.333$ vs.\ $0.00$ for H2O and PyramidKV). StreamingLLM's recency
+window retains $0.200$/$0.333$ but, as at $4{,}096$ tokens, has no
+mechanism for earlier depths. The retention ratios over H2O span
+$6$--$11\times$ across the two windows.
+
+\paragraph{Capacity ceiling (negative result).}
+The 3B model at $8$K does not run under this protocol. The driver's
+feasibility probe---which executes the real worst case, one chunked
+no-compression pass at $\rho=1.0$---exhausted the device and aborted
+$24$\,MiB short with $14.20$\,GiB already allocated (fragmentation
+mitigations enabled), so the configuration was skipped by design rather
+than partially executed. This is a genuine capacity limit of the
+matched-entry protocol in fp32 on a $16$\,GB T4, consistent with the
+$7$B-delay rationale above, and it is final for this
+protocol/hardware combination.
+
+\paragraph{What makes 16K executable at all.}
+The same probe quantifies why the chunked online protocol is not an
+implementation detail but the enabling mechanism at depth. A monolithic
+full-window forward---materialising the $[1,H,L,L]$ eager attention
+footprint---requests $12$\,GiB of attention alone at $16$K fp32 and is
+infeasible on the T4, while the chunked pass peaks at $11.24$\,GB
+($8.77$\,GB at $8$K, where the monolithic alternative at $13.94$\,GB is
+still barely feasible). Every experimental phase of this paper runs on
+the chunked path; the probe records both numbers so the distinction is
+reproducible.
+
+\paragraph{Honest reporting: first floor deficits under the adaptive
+dial.}
+The extension produced the first deviations from the matched-entry
+floor in this project's history. In the perplexity runs, where every
+compression step is logged, the adaptive \sage{} dial at $\rho=0.2$
+retains \emph{fewer} entries than the nominal budget in 4 of 128
+compression steps at $8$K and 57 of 256 at $16$K; the uniform-budget
+variant, H2O, and PyramidKV remain integer-exact at every step of both
+windows, and every released $4{,}096$-token run remains
+deviation-free. Three properties bound the phenomenon. It is
+\emph{one-sided}: every deviation is under-retention, so the advertised
+contract---an upper bound---is never exceeded at any step of any run,
+and Theorem~\ref{thm:exact}'s guarantee is intact everywhere. It is
+\emph{deep-window-specific}: no deviation occurs before
+$t=5{,}888$ in either window, and the deficit grows with depth
+($\le 13$ entries at $8$K, $\le 100$ at $16$K, i.e.\ $\le 0.03\%$ and
+$\le 0.11\%$ of the nominal budget). And it is \emph{policy-specific}:
+it appears only where the allocation moves online. The mechanism, audited
+at source level and re-verified by a replay harness released with the
+artifact, is a cache-refill race, not an allocation failure: the
+projector provably returns exact-sum allocations (checked on $10^5$
+randomised instances, zero failures), but the adaptive weights drift
+online, and when a layer's budget jumps by more than the fixed
+$64$-entries-per-chunk refill---a weight shift of order $0.2\%$ of the
+budget at the observed onset---the cache transiently holds
+fewer entries than the budget and the engine keeps all it has rather
+than invent entries. Deficits are bounded by the refill rate and
+self-correct. The needle runs' deviation counters additionally include
+decode-time under-fills (tokens arrive one per step while the envelope
+grows by $\rho L$ per step; the memory-savings class of
+Section~\ref{sec:exp-gpu}), which is why the clean prefill-only
+measurement above comes from the perplexity runs' per-step accounting.
+Closing the floor entirely would require either larger chunks (which
+changes the matched-entry protocol) or budget smoothing (which changes
+the published $4{,}096$-token behaviour); we record both as
+protocol-level options for future work rather than silently altering
+either. The practical consequence aligns with the dial guide of
+Section~\ref{sec:disc}: the uniform-budget variant is simultaneously
+the best perplexity at every window measured \emph{and} floor-exact at
+every depth, which is why it remains the deployment default.

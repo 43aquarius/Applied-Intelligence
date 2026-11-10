@@ -16,7 +16,9 @@ conclusions: exact budgets are cheap; allocation should follow measured
 dispersion rather than static priors, with architecture-dependent payoff;
 sink and recency protection is structural, not optional; decay trades
 language-modelling quality against late-context retention and
-multi-instruction robustness; and history-only eviction fundamentally
+multi-instruction robustness; the orderings persist at $8$K/$16$K
+contexts, which only the chunked online protocol makes executable on the
+replication hardware; and history-only eviction fundamentally
 cannot preserve mid-context needles at aggressive budgets---a limitation
 that cache-level retention diagnostics measure directly and that
 query-aware methods are positioned to address. The path forward we

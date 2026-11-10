@@ -15,6 +15,13 @@ every allocation or scoring choice. Fourth, the decay rate is a real
 dial, not a free lunch: it trades perplexity (best at $\gamma=1$) against
 late-context retention and multi-instruction robustness (best at
 $\gamma<1$), and Proposition~\ref{prop:staleness} explains the mechanism.
+Fifth, every ordering above survives the extension to $8$K and $16$K
+contexts on the 1.5B model, where the same family leads at every window
+measured ($8.661$/$8.373$), the retention advantage of decayed scoring
+widens to $6$--$11\times$ H2O, and the chunked online protocol is not
+merely an implementation choice but what makes the depth executable on
+the replication hardware at all
+(Section~\ref{sec:exp-ext8k}).
 
 \paragraph{What it does not support.}
 We report two negative results with the same prominence as the positive
@@ -29,7 +36,15 @@ Likewise, the needle results are a measured \emph{failure} of the entire
 history-only family at $20\%$ budget, ours included; we consider the
 retention diagnostic that localises the failure (cache content, not
 generation) more useful than a leaderboard in which every score-based
-method scores zero at mid depths.
+method scores zero at mid depths. The deep-window extension adds a third
+calibration, on ourselves: the matched-entry floor is achieved up to
+cache availability, and under the adaptive dial deep-window budget jumps
+can transiently outrun the fixed refill rate (4 of 128 steps at $8$K,
+57 of 256 at $16$K, all one-sided under-retention, bounded and
+self-correcting; Section~\ref{sec:exp-ext8k}). The projection itself is
+exact everywhere---every such deficit is a keep-all branch, not an
+allocation error---and the uniform-budget variant and every static
+baseline are floor-exact at every step measured.
 
 \paragraph{Choosing the dials in practice.}
 The sensitivity grids double as a selection guide, and the honest summary
@@ -47,11 +62,16 @@ within one perplexity point of the minimum---the probe runs in minutes
 on CPU, so the dial costs almost nothing to set. For the exponent $\tau$
 (the budget profile): the measured dispersion profile, not a prior,
 should arbitrate---GPT-2's non-monotone profile rewards stronger
-weighting ($\tau=2.0$ is best in its grid) while every Qwen scale we
-tested is best served by the uniform endpoint ($\tau=0$: $16.40$ at
-$0.5$B; $10.30/9.19$ at $1.5$B/3B in the GPU replication), so probe
+weighting ($\tau=2.0$ is best in its grid) while every Qwen scale and
+window we tested is best served by the uniform endpoint ($\tau=0$:
+$16.40$ at $0.5$B; $10.30/9.19$ at $1.5$B/3B in the GPU replication;
+$8.66/8.37$ at $8$K/$16$K), so probe
 $\tau\in\{0,1.5,2\}$ and fall back to uniform when the profile is flat
-or the probe is inconclusive. Both dials are two constants in the
+or the probe is inconclusive. The $8$K/$16$K extension adds a
+deployment-grade tiebreaker to that fallback: the uniform endpoint is
+floor-exact at every depth, while the adaptive dial's deep-window
+budget jumps can transiently outrun the refill rate
+(Section~\ref{sec:exp-ext8k}). Both dials are two constants in the
 released engine; no retraining is involved.
 
 \paragraph{Limitations.}
@@ -59,16 +79,26 @@ The core study is CPU-scale by construction (models to $0.5$B parameters,
 contexts to $4{,}096$ tokens, single-sequence execution at
 $\sim$61 tokens/s prefill on the larger model), and the GPU replication
 (Section~\ref{sec:exp-gpu}) extends the quality, retrieval, and
-sensitivity grids to Qwen2.5-1.5B/3B on T4 hardware but not beyond:
-7B-class models, 32K+ contexts, and throughput under
-batching, kernel fusion, or paged allocators remain unmeasured, and our
+sensitivity grids to Qwen2.5-1.5B/3B on T4 hardware; the extension
+(Section~\ref{sec:exp-ext8k}) pushes the quality and retrieval grids to
+$8$K/$16$K contexts on the 1.5B model. Not beyond, however: 7B-class
+models and 32K+ contexts remain unmeasured, the 3B model does not run
+at $8$K under the fp32 matched-entry protocol on a $16$\,GB T4 (the
+feasibility probe exhausted memory $24$\,MiB short---a genuine capacity
+ceiling for this protocol/hardware combination), and reaching $16$K at
+all depends on the chunked online path, since a monolithic full-window
+attention pass needs $12$\,GiB at that depth and exceeds the device
+(Section~\ref{sec:exp-ext8k}); throughput under
+batching, kernel fusion, or paged allocators remains unmeasured, and our
 GPU overheads are wall-clock in eager mode rather than profiled kernels;
 the systems interactions that dominate at production scale
 \cite{kwon2023paged,mao2026infra} are outside what this hardware can
 measure. Perplexity uses $10$--$32$ evaluation windows (dictated by
 compute), which suffices for the effect sizes reported but is smaller
 than the full-test-set convention; the needle grid uses two trials per
-depth at 2{,}048 and one at 4{,}096 tokens. Our baseline set covers the
+depth at 2{,}048 and one at 4{,}096 tokens, and one trial per depth
+position (five depths at $8$K, three at $16$K) in the extension. Our
+baseline set covers the
 eviction family and its layer-allocation axis; we do not compare against
 query-aware methods (SnapKV, Quest, DuoAttention) or quantisation (KIVI)
 because they change the deployment model rather than the eviction policy,
@@ -81,8 +111,11 @@ this paper descends from them.
 The artifact contains the engine, all policies, the projector with its
 assertion harness, every result JSON and accounting log behind every
 table and figure---CPU and GPU alike---the scripts that regenerate them,
-and the GPU driver that reproduced the 1.5B/3B grids unmodified on a
-single T4. A single command re-derives each table from the logs; a single
+the GPU drivers that reproduced the 1.5B/3B grids and the $8$K/$16$K
+extension unmodified on T4 hardware with their feasibility-probe
+records, and the replay harness that re-derives the deep-window
+floor-deficit mechanism without a model. A single command re-derives
+each table from the logs; a single
 flag re-runs any configuration with a different seed. We believe this is
 the appropriate response to the review context that motivated this work:
 claims about memory contracts should be checkable at the level of
