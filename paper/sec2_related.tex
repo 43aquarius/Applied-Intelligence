@@ -32,7 +32,15 @@ dynamics and memory is managed in a cascading manner, with an eviction
 indicator that accounts for shifting importance over
 time~\cite{qin2025cake}. LAVa derives a layer-attention output loss
 metric that enables dynamic head- and layer-wise budgets without
-training~\cite{shen2025lava}. These methods supply strong empirical
+training~\cite{shen2025lava}. Closest to our setting, Ada-KV derives a
+loss upper bound between pre- and post-eviction attention outputs and
+uses it to justify \emph{head-wise} adaptive budgets inside each layer,
+allocated once after prefill by a global top-$k$ across
+heads~\cite{feng2025adakv}. \sage{} targets the complementary axis: the
+budget itself is the object---adapted across \emph{layers}, refreshed at
+every decoding step, and realised as an exact integer contract
+(Theorem~\ref{thm:exact}) rather than bounded after the fact. These
+methods supply strong empirical
 evidence that allocation matters, but their budget rules are heuristic:
 the profile shapes are fixed priors, and the dynamic rules are validated
 by end-task accuracy rather than by any guarantee on the realised cache
@@ -43,9 +51,17 @@ by construction rather than by tuning. Second, because the projection
 accepts arbitrary weight vectors, the same machinery instantiates uniform
 budgets (H2O-style), static pyramids (PyramidKV-style), and our adaptive
 weights, which is what makes the matched-entry comparison of
-Section~\ref{sec:exp} possible. Very recent systems work continues to
-expand this direction, which we view as further evidence that allocation
-is a first-class design axis.
+Section~\ref{sec:exp} possible. Very recent work continues to expand this
+direction---threshold-free budget adjustment that preserves full-cache
+performance~\cite{ni2025refreekv}, coverage-driven cross-head and
+cross-layer retention objectives~\cite{roy2026kvec}, learned importance
+indexers with a latent-memory compensation
+state~\cite{yang2026indexmem}, long-term-contribution estimators for
+reasoning traces~\cite{dong2026foresightkv}, and output-aware layer-wise
+reformulations~\cite{mai2026laprox}---further evidence that allocation is
+a first-class design axis. None of these, however, enforces an exact
+integer contract on the realised global budget; that is the gap \sage{}
+targets.
 
 \paragraph{Query-aware and prefill-time selection.}
 A complementary family avoids the history-only weakness of eviction
@@ -55,7 +71,16 @@ the full cache resident but loads only pages whose key ranges can
 interact strongly with the current query, using page-level min/max
 statistics~\cite{tang2024quest}. DuoAttention distinguishes retrieval
 heads from streaming heads with a learned mask and keeps full caches only
-for the former~\cite{xiao2024duoattention}. These methods motivate the
+for the former~\cite{xiao2024duoattention}. Concurrently, a method
+abbreviating itself \emph{SAGE-KV} performs a one-time token- and
+head-level top-$k$ selection after prefill using self-attention
+scores~\cite{wang2025sagekv}; apart from the shared acronym it is
+unrelated to this work---SAGE-KV selects once, at prefill time, under a
+fixed global budget, whereas \sage{} (Sparsity-Adaptive Gated Eviction)
+adapts layer-wise budgets online under an exact
+contract.\footnote{We keep our acronym for continuity with the released
+code and experiment logs; the collision is a chronological accident, not
+shared provenance.} These methods motivate the
 needle-retention diagnostics we report in Section~\ref{sec:exp}: when a
 history-only policy evicts a needle, no amount of decoding-time cleverness
 recovers it, and measuring retention in the cache isolates that failure
@@ -88,5 +113,5 @@ decayed scoring and dispersion weighting help, and a matched-entry
 protocol that makes cross-method comparisons meaningful. The comparison in
 Section~\ref{sec:exp} is therefore deliberately internal---same harness,
 same projector, same inputs, same accounting---and its scope (models to
-$0.5$B, contexts to $4$K, CPU) is reported as a first-class limitation
-rather than hidden.
+$3$B, contexts to $4$K, CPU plus a single-T4 GPU replication) is
+reported as a first-class limitation rather than hidden.

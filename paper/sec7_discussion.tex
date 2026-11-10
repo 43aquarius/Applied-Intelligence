@@ -31,6 +31,29 @@ retention diagnostic that localises the failure (cache content, not
 generation) more useful than a leaderboard in which every score-based
 method scores zero at mid depths.
 
+\paragraph{Choosing the dials in practice.}
+The sensitivity grids double as a selection guide, and the honest summary
+is architecture- and workload-dependent. For decay $\gamma$: start from
+$\gamma=1$ on stationary language-modelling text, where long memory is
+rewarded and the grid is monotone---over-decay, not under-decay, is the
+main risk ($54.50$ at $\gamma=0.98$ versus $46.89$ at $\gamma=1$ on
+GPT-2; Table~\ref{tab:sens}); introduce gentle decay
+($\gamma\in[0.99,0.995]$) when scores must forget stale mass, which is
+what the GQA family prefers in our runs ($17.02$ with decay versus
+$17.43$ without at $0.5$B; $10.45$ versus $10.65$ at $1.5$B). A cheap
+rule: probe $\gamma\in\{1,0.999,0.995,0.99\}$ on a 16-sequence
+perplexity slice at the target $\rho$ and pick the largest $\gamma$
+within one perplexity point of the minimum---the probe runs in minutes
+on CPU, so the dial costs almost nothing to set. For the exponent $\tau$
+(the budget profile): the measured dispersion profile, not a prior,
+should arbitrate---GPT-2's non-monotone profile rewards stronger
+weighting ($\tau=2.0$ is best in its grid) while every Qwen scale we
+tested is best served by the uniform endpoint ($\tau=0$: $16.40$ at
+$0.5$B; $10.30/9.19$ at $1.5$B/3B in the GPU replication), so probe
+$\tau\in\{0,1.5,2\}$ and fall back to uniform when the profile is flat
+or the probe is inconclusive. Both dials are two constants in the
+released engine; no retraining is involved.
+
 \paragraph{Limitations.}
 The core study is CPU-scale by construction (models to $0.5$B parameters,
 contexts to $4{,}096$ tokens, single-sequence execution at
