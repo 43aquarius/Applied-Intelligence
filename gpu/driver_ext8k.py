@@ -21,6 +21,21 @@ kept unmodified for artifact provenance) with only the deltas documented here:
     kernel resumes (existing JSON files are skipped) so a second version run
     completes whatever the 8 h deadline cut off.
 
+v2 probe fix (Task 16, after kernel version 1 OOM'd all three models at
+memprobe in 137 s): the v1 probe used a MONOLITHIC full-window forward,
+which materializes [1, H, L, L] fp32 attention weights -- exactly
+3.00 / 4.00 / 12.00 GiB at 8K / 8K / 16K on T4 -- a path that NO
+experiment phase ever executes (PPL and needle both run through the
+engine's chunked teacher_forced/generate, whose attention footprint is
+[1, H, chunk, cache+chunk], linear in cache).  v2 probes the real worst
+case instead: one chunked no-compression pass at the full window (sage
+policy at rho=1.0 -> cache grows to the whole window, eviction never
+fires).  The monolithic forward is still attempted afterwards,
+non-fatally, and recorded in memprobe.json as feasibility evidence
+(limitation-section material: monolithic eager attention at >=8K fp32
+does not fit T4; the chunked online protocol is what makes long-context
+execution possible).
+
 Identical engine, policies, matched-entry protocol, and JSON result schema
 as the released study. Single "Save & Run All" commit; the script terminates
 by itself.
@@ -37,6 +52,11 @@ import os
 import subprocess
 import sys
 import time
+
+# allocator hygiene BEFORE torch/cuda init: the 3B fp32 @8K fit on T4 is
+# tight (~13.1 GiB peak vs 14.56 GiB); expandable segments reduce
+# fragmentation-driven failures. No effect on numerics or protocol.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 # ---------------------------------------------------------------------------
 # configuration
@@ -310,26 +330,56 @@ def correctness_gate(eng, seq_len=256):
 
 
 def mem_probe(eng, seq_len):
-    """One full-cache forward at the model's window length.
+    """Probe the ACTUAL execution path at the model's window length (v2).
 
-    Logs peak CUDA memory to results_gpu/memprobe.json; raises OOM to the
-    caller's guard if the longest config cannot be served (stop condition:
-    skip the model's remaining phases rather than crash the run)."""
+    One chunked no-compression pass (sage policy, rho=1.0 -> cache grows to
+    the full window, eviction never fires) -- the exact worst case the
+    PPL/needle phases exercise.  Logs peak CUDA memory to
+    results_gpu/memprobe.json; raises OOM to the caller's guard if this real
+    path cannot be served (stop condition: skip the model's remaining phases
+    rather than crash the run).
+
+    Afterwards a monolithic full-window forward is attempted non-fatally and
+    recorded for the feasibility record (v1 treated it as the gate, which
+    false-negative OOM'd every model at 8K/16K fp32 on T4)."""
     import torch
+    on_cuda = torch.cuda.is_available()
     ids = torch.randint(0, eng.tokenizer.vocab_size - 100, (1, seq_len))
     ids = ids.to(eng.device)
-    torch.cuda.reset_peak_memory_stats()
-    with torch.no_grad():
-        eng.model(input_ids=ids, output_attentions=False)
-    peak = torch.cuda.max_memory_allocated() / 1e9
-    total = torch.cuda.get_device_properties(0).total_memory / 1e9
+    if on_cuda:
+        torch.cuda.reset_peak_memory_stats()
+    pol = make_policy("sage", eng.L)
+    nll, cnt = eng.teacher_forced(ids, pol, 1.0)
+    peak = total = None
+    if on_cuda:
+        peak = round(torch.cuda.max_memory_allocated() / 1e9, 2)
+        total = round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2)
     rec = {"model": eng.model_tag if hasattr(eng, "model_tag") else "",
-           "seq_len": seq_len, "peak_gb": round(peak, 2), "total_gb": round(total, 2)}
+           "seq_len": seq_len, "mode": "chunked-full-cache-rho1.0",
+           "peak_gb": peak, "total_gb": total,
+           "probe_mean_nll": round(nll / max(cnt, 1), 4)}
+    # informational only: monolithic full-window forward (never gates)
+    if on_cuda:
+        torch.cuda.reset_peak_memory_stats()
+    try:
+        with torch.no_grad():
+            eng.model(input_ids=ids, output_attentions=False)
+        rec["monolithic_forward"] = {
+            "feasible": True,
+            "peak_gb": (round(torch.cuda.max_memory_allocated() / 1e9, 2)
+                        if on_cuda else None)}
+    except torch.cuda.OutOfMemoryError as e:
+        rec["monolithic_forward"] = {
+            "feasible": False,
+            "requested": str(e).split("Tried to allocate ")[-1].split(".")[0]}
+        if on_cuda:
+            torch.cuda.empty_cache()
     p = os.path.join(RESULTS, "memprobe.json")
     hist = json.load(open(p)) if os.path.exists(p) else []
     hist.append(rec)
     json.dump(hist, open(p, "w"), indent=2)
-    log(f"MEMPROBE seq_len={seq_len}: peak={peak:.2f} GB / {total:.2f} GB")
+    log(f"MEMPROBE seq_len={seq_len}: chunked peak={peak} / {total} GB | "
+        f"monolithic={rec['monolithic_forward']}")
     return rec
 
 
