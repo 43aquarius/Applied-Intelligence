@@ -1,0 +1,50 @@
+{
+  "hits": [
+    0
+  ],
+  "hit_rate": 0.0,
+  "gen": "The secret code mentioned in the text above is not explicitly stated.",
+  "retention_mean": 0.0,
+  "retention_per_layer": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "wall_s": 16.819900801999893,
+  "prompt_len": 8308,
+  "violations": 0,
+  "model": "qwen15b-ext8k",
+  "length": 8192,
+  "depth": 50,
+  "trial": 0,
+  "method": "streamingllm",
+  "multi": false,
+  "codes": [
+    "3350084"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "model": "qwen15b-ext8k",
+  "policy": "sage",
+  "rho": 0.1,
+  "gamma": null,
+  "tau": null,
+  "recent": 32,
+  "sink": 4,
+  "n_seqs": 3,
+  "n_tokens": 24573,
+  "avg_nll": 2.2245308096913092,
+  "ppl": 9.249142177823138,
+  "wall_s": 46.35012629800008,
+  "tok_s": 530.1603676765014,
+  "budget_violations": 0
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "model": "qwen15b-ext8k",
+    "seq_len": 8192,
+    "mode": "chunked-full-cache-rho1.0",
+    "peak_gb": 8.77,
+    "total_gb": 15.64,
+    "probe_mean_nll": 13.2916,
+    "monolithic_forward": {
+      "feasible": true,
+      "peak_gb": 13.94
+    }
+  },
+  {
+    "model": "qwen15b-ext16k",
+    "seq_len": 16384,
+    "mode": "chunked-full-cache-rho1.0",
+    "peak_gb": 11.24,
+    "total_gb": 15.64,
+    "probe_mean_nll": 13.2709,
+    "monolithic_forward": {
+      "feasible": false,
+      "requested": "12"
+    }
+  }
+]
