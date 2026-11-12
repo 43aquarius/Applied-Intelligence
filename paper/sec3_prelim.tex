@@ -6,8 +6,8 @@ Consider a decoder-only model with $L$ transformer layers, $H$ query
 heads, $n_{\mathrm{kv}}$ key--value heads (grouped-query attention
 \cite{ainslie2023gqa}; $n_{\mathrm{kv}}=H$ recovers multi-head
 attention), and head dimension $d_h$. At step $t$ the current query
-attends over all cached positions, and each layer stores one key and one
-value vector per retained position and per KV head. One \emph{cache
+attends over all cached positions~\cite{vaswani2017attention}, and each layer
+stores one key and one value vector per retained position and per KV head. One \emph{cache
 entry}---the unit this paper budgets over---is the pair $(k_i, v_i)$ for
 one position in one layer, occupying
 $2\,n_{\mathrm{kv}}\,d_h\,\beta$ bytes with $\beta$-byte precision.
