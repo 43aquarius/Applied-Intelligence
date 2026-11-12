@@ -586,8 +586,9 @@ contract---an upper bound---is never exceeded at any step of any run,
 and Theorem~\ref{thm:exact}'s guarantee is intact everywhere. It is
 \emph{deep-window-specific}: no deviation occurs before
 $t=5{,}888$ in either window, and the deficit grows with depth
-($\le 13$ entries at $8$K, $\le 100$ at $16$K, i.e.\ $\le 0.03\%$ and
-$\le 0.11\%$ of the nominal budget). And it is \emph{policy-specific}:
+($\le 13$ entries at $8$K, $\le 100$ at $16$K; measured against the
+nominal budget at the step where the deficit occurs, at most $0.03\%$
+and $0.19\%$). And it is \emph{policy-specific}:
 it appears only where the allocation moves online. The mechanism, audited
 at source level and re-verified by a replay harness released with the
 artifact, is a cache-refill race, not an allocation failure: the
